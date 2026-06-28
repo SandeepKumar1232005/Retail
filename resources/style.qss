@@ -1,0 +1,48 @@
+/* style.qss - Modern Dark Theme */
+
+* {
+    font-family: 'Segoe UI', 'Roboto', 'Inter', sans-serif;
+    color: #E0E0E0;
+}
+
+QMainWindow {
+    background-color: #121212;
+}
+
+#sidebar {
+    background-color: #1E1E1E;
+    border-right: 1px solid #333333;
+}
+
+#sidebarLogo {
+    font-size: 28px;
+    font-weight: bold;
+    color: #4CAF50;
+    margin-top: 20px;
+}
+
+#sidebarButton {
+    background-color: transparent;
+    color: #B0B0B0;
+    text-align: left;
+    padding: 12px 20px;
+    font-size: 16px;
+    border: none;
+    border-left: 4px solid transparent;
+}
+
+#sidebarButton:hover {
+    background-color: #2A2A2A;
+    color: #FFFFFF;
+}
+
+#sidebarButton:checked {
+    background-color: #2A2A2A;
+    color: #4CAF50;
+    border-left: 4px solid #4CAF50;
+    font-weight: bold;
+}
+
+#contentArea {
+    background-color: #121212;
+}

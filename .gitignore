@@ -1,0 +1,28 @@
+# CMake
+CMakeCache.txt
+CMakeFiles
+CMakePresets.json
+build/
+out/
+.cmake/
+
+# Qt
+*.user
+*.user.*
+*.qmlc
+*.jsc
+
+# SQLite
+*.db
+*.sqlite
+
+# IDEs
+.vscode/
+.idea/
+.vs/
+
+# Logs & temp
+*.log
+scratch/
+temp/
+tmp/
