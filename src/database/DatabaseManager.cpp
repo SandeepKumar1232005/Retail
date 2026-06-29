@@ -1,6 +1,7 @@
 #include "DatabaseManager.h"
 #include "exceptions/AppException.h"
 #include "utils/Logger.h"
+#include "migrations/MigrationRunner.h"
 #include <QSqlError>
 #include <QDir>
 #include <QFileInfo>
@@ -136,8 +137,11 @@ bool DatabaseManager::rollback() {
 }
 
 void DatabaseManager::runMigrations(const QString& migrationsDir) {
-    // Migration logic will be implemented here
     LOG_INFO("Running migrations from: " + migrationsDir);
+    MigrationRunner runner(*this);
+    if (!runner.runMigrations(migrationsDir)) {
+        LOG_ERROR("Failed to apply migrations!");
+    }
 }
 
 int DatabaseManager::currentSchemaVersion() const {

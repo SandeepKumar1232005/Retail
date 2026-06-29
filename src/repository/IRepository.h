@@ -1,4 +1,5 @@
 #pragma once
+class QSqlQuery;
 
 #include <vector>
 #include <optional>

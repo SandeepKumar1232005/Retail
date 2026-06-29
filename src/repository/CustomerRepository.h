@@ -1,4 +1,5 @@
 #pragma once
+class QSqlQuery;
 #include "IRepository.h"
 #include "../models/Customer.h"
 #include <memory>
@@ -24,7 +25,7 @@ public:
 
 private:
     std::shared_ptr<DatabaseManager> m_db;
-    Customer mapRow(const class QSqlQuery& query) const;
+    Customer mapRow(const QSqlQuery& query) const;
 };
 
 } // namespace RetailMS

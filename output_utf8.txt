@@ -1,0 +1,2 @@
+﻿2026-06-29 13:43:26.070 | INFO  | [DatabaseManager.cpp:40] Connected to database: retail_ms.db
+2026-06-29 13:43:26.070 | INFO  | [DatabaseManager.cpp:140] Running migrations from: src/database/migrations

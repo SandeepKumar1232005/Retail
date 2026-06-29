@@ -40,11 +40,12 @@ int main(int argc, char *argv[]) {
     qDebug() << "Starting Retail Management System...";
 
     // Initialize Database
-    auto dbManager = std::make_shared<DatabaseManager>("retail_ms.db");
-    if (!dbManager->connect()) {
+    auto dbManager = std::shared_ptr<DatabaseManager>(&DatabaseManager::instance(), [](DatabaseManager*){});
+    if (!dbManager->connect("retail_ms.db")) {
         qCritical() << "Failed to connect to database!";
         return 1;
     }
+    dbManager->runMigrations("src/database/migrations");
     
     // Setup Repositories
     auto invoiceRepo = std::make_shared<InvoiceRepository>(dbManager);

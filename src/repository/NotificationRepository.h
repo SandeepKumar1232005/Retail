@@ -1,4 +1,5 @@
 #pragma once
+class QSqlQuery;
 #include "IRepository.h"
 #include "../models/Notification.h"
 #include <memory>
@@ -24,7 +25,7 @@ public:
 
 private:
     std::shared_ptr<DatabaseManager> m_db;
-    Notification mapRow(const class QSqlQuery& query) const;
+    Notification mapRow(const QSqlQuery& query) const;
 };
 
 } // namespace RetailMS

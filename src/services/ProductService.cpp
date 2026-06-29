@@ -18,6 +18,9 @@ std::optional<Product> ProductService::getProductByBarcode(const QString& barcod
 }
 
 std::vector<Product> ProductService::searchProducts(const QString& query) const {
+    if (query.trimmed().isEmpty()) {
+        return m_repo->findAll();
+    }
     return m_repo->findWhere("name LIKE ? OR barcode LIKE ? OR sku LIKE ?", 
                              {"%" + query + "%", "%" + query + "%", "%" + query + "%"});
 }

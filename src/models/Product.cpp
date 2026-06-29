@@ -29,8 +29,16 @@ QJsonObject Product::toJson() const {
     obj["name"] = name;
     obj["sku"] = sku;
     obj["barcode"] = barcode;
-    obj["category_id"] = categoryId;
-    obj["supplier_id"] = supplierId;
+    if (categoryId > 0) {
+        obj["category_id"] = categoryId;
+    } else {
+        obj["category_id"] = QJsonValue(QJsonValue::Null);
+    }
+    if (supplierId > 0) {
+        obj["supplier_id"] = supplierId;
+    } else {
+        obj["supplier_id"] = QJsonValue(QJsonValue::Null);
+    }
     obj["cost_price"] = costPrice;
     obj["selling_price"] = sellingPrice;
     obj["mrp"] = mrp;
