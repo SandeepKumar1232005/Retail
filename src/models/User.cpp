@@ -36,6 +36,8 @@ void User::fromJson(const QJsonObject& obj) {
     email = obj["email"].toString();
     phone = obj["phone"].toString();
     isActive = obj["is_active"].toBool(true);
+    passwordHash = obj["password_hash"].toString();
+    salt = obj["salt"].toString();
 }
 
 } // namespace RetailMS

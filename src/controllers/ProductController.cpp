@@ -11,18 +11,28 @@ std::vector<Product> ProductController::searchProducts(const QString& query) con
     return m_productService->searchProducts(query);
 }
 
-void ProductController::saveProduct(const Product& p) {
+std::optional<Product> ProductController::getProductByBarcode(const QString& barcode) const {
+    return m_productService->getProductByBarcode(barcode);
+}
+
+void ProductController::saveProduct(Product p, bool notify) {
     try {
         if (p.id < 0) {
             m_productService->saveProduct(p);
         } else {
             m_productService->updateProduct(p);
         }
-        emit successMessage("Product saved successfully");
-        emit productListChanged();
+        if (notify) {
+            emit successMessage("Product saved successfully");
+            emit productListChanged();
+        }
     } catch (const std::exception& e) {
         handleError("Save Product", e);
     }
+}
+
+void ProductController::notifyProductsUpdated() {
+    emit productListChanged();
 }
 
 void ProductController::deleteProduct(int id) {

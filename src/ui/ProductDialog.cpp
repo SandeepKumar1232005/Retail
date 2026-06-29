@@ -43,6 +43,7 @@ void ProductDialog::setupUi() {
     m_nameInput = new QLineEdit(this);
     m_skuInput = new QLineEdit(this);
     m_categoryInput = new QComboBox(this);
+    m_categoryInput->setEditable(true);
     
     // Auto-generate a default SKU
     m_skuInput->setText("SKU-" + QUuid::createUuid().toString().mid(1, 8).toUpper());
@@ -110,7 +111,8 @@ Product ProductDialog::getProduct() const {
     }
     p.name = m_nameInput->text();
     p.sku = m_skuInput->text();
-    p.categoryId = m_categoryInput->currentData().toInt();
+    p.categoryName = m_categoryInput->currentText().trimmed();
+    p.categoryId = m_categoryInput->currentData().isValid() ? m_categoryInput->currentData().toInt() : -1;
     p.costPrice = m_costPriceInput->value();
     p.sellingPrice = m_priceInput->value();
     p.mrp = m_mrpInput->value();

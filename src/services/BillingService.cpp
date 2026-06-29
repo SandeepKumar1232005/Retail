@@ -4,7 +4,7 @@
 #include "InventoryService.h"
 #include "CustomerService.h"
 #include "CouponService.h"
-#include "SessionManager.h"
+#include "../services/SessionManager.h"
 #include "../utils/Logger.h"
 #include "../exceptions/AppException.h"
 #include <QDate>
@@ -142,6 +142,9 @@ Invoice BillingService::finaliseInvoice(Invoice& inv, double amountPaid, Invoice
 }
 
 bool BillingService::voidInvoice(int invoiceId, const QString& reason) {
+    if (SessionManager::instance().isLoggedIn() && !SessionManager::instance().currentUser().isAdmin()) {
+        throw AuthException("Unauthorized: Admin access required to void invoices.");
+    }
     auto optInv = m_invoiceRepo->findById(invoiceId);
     if (!optInv) return false;
     Invoice inv = optInv.value();
@@ -159,6 +162,9 @@ bool BillingService::voidInvoice(int invoiceId, const QString& reason) {
 }
 
 Invoice BillingService::processRefund(int invoiceId) {
+    if (SessionManager::instance().isLoggedIn() && !SessionManager::instance().currentUser().isAdmin()) {
+        throw AuthException("Unauthorized: Admin access required to process refunds.");
+    }
     auto optInv = m_invoiceRepo->findById(invoiceId);
     if (!optInv) throw AppException("Invoice not found");
     Invoice inv = optInv.value();
@@ -179,6 +185,11 @@ QString BillingService::generateInvoiceNumber() const {
 }
 
 std::vector<Invoice> BillingService::getInvoicesByDateRange(const QDate& from, const QDate& to) const {
+    if (SessionManager::instance().isLoggedIn() && !SessionManager::instance().currentUser().isAdmin()) {
+        // Staff can only see their own invoices
+        return m_invoiceRepo->findWhere("date(invoice_date) >= ? AND date(invoice_date) <= ? AND cashier_id = ?", 
+                                        {from.toString(Qt::ISODate), to.toString(Qt::ISODate), SessionManager::instance().currentUser().id});
+    }
     return m_invoiceRepo->findWhere("date(invoice_date) >= ? AND date(invoice_date) <= ?", 
                                     {from.toString(Qt::ISODate), to.toString(Qt::ISODate)});
 }

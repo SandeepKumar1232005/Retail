@@ -1,4 +1,5 @@
 #include "SidebarWidget.h"
+#include "../services/SessionManager.h"
 #include <QLabel>
 #include <QEvent>
 
@@ -22,13 +23,25 @@ void SidebarWidget::setupUi() {
     m_layout->addWidget(m_logoLabel);
     m_layout->addSpacing(20);
 
+    bool isAdmin = SessionManager::instance().isLoggedIn() && SessionManager::instance().currentUser().isAdmin();
+
     m_navButtons.append(createNavButton("Dashboard", "📊", 0));
     m_navButtons.append(createNavButton("Billing", "💳", 1));
-    m_navButtons.append(createNavButton("Products", "📦", 2));
-    m_navButtons.append(createNavButton("Customers", "👥", 3));
-    m_navButtons.append(createNavButton("Inventory", "🏢", 4));
-    m_navButtons.append(createNavButton("Reports", "📈", 5));
-    m_navButtons.append(createNavButton("Settings", "⚙️", 6));
+
+    if (isAdmin) {
+        m_navButtons.append(createNavButton("Products", "📦", 2));
+        m_navButtons.append(createNavButton("Inventory", "🏢", 3));
+        m_navButtons.append(createNavButton("Categories", "📁", 4));
+        m_navButtons.append(createNavButton("Sales History", "📝", 5));
+        m_navButtons.append(createNavButton("Reports", "📈", 6));
+        m_navButtons.append(createNavButton("Staff Mgt", "👨‍💼", 7));
+        m_navButtons.append(createNavButton("Customers", "👥", 8));
+        m_navButtons.append(createNavButton("Settings", "⚙️", 9));
+    } else {
+        m_navButtons.append(createNavButton("My Bills", "📝", 10));
+        m_navButtons.append(createNavButton("Products", "📦", 2));
+        m_navButtons.append(createNavButton("Profile", "👤", 11));
+    }
 
     m_layout->addStretch();
     
@@ -36,6 +49,21 @@ void SidebarWidget::setupUi() {
     m_animation = new QPropertyAnimation(this, "sidebarWidth");
     m_animation->setDuration(150);
     m_animation->setEasingCurve(QEasingCurve::InOutQuad);
+}
+
+QString SidebarWidget::getPageName(int index) const {
+    for (auto btn : m_navButtons) {
+        // The slot captures pageIndex by value, but we didn't store it on the button.
+        // Let's rely on property if we stored it, or just match the index to the list.
+    }
+    // Static map
+    QStringList pages = {
+        "Dashboard", "Billing", "Products", "Inventory", "Categories", 
+        "Sales History", "Reports", "Staff Management", "Customers", 
+        "Settings", "My Bills", "Profile", "Access Denied"
+    };
+    if (index >= 0 && index < pages.size()) return pages[index];
+    return "Unknown Page";
 }
 
 QPushButton* SidebarWidget::createNavButton(const QString& text, const QString& icon, int pageIndex) {

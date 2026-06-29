@@ -7,9 +7,8 @@
 
 namespace RetailMS {
 
-AuthService::AuthService(std::shared_ptr<UserRepository> userRepo,
-                         std::shared_ptr<SessionManager> session)
-    : m_userRepo(std::move(userRepo)), m_session(std::move(session)) {
+AuthService::AuthService(std::shared_ptr<UserRepository> userRepo)
+    : m_userRepo(std::move(userRepo)) {
 }
 
 std::optional<User> AuthService::login(const QString& username, const QString& password) {
@@ -28,7 +27,7 @@ std::optional<User> AuthService::login(const QString& username, const QString& p
     if (CryptoUtils::verifyPassword(password, user.salt, user.passwordHash)) {
         user.lastLogin = QDateTime::currentDateTime();
         m_userRepo->update(user);
-        m_session->setCurrentUser(user);
+        SessionManager::instance().setCurrentUser(user);
         LOG_INFO("User logged in successfully", username);
         return user;
     }
@@ -38,18 +37,18 @@ std::optional<User> AuthService::login(const QString& username, const QString& p
 }
 
 void AuthService::logout() {
-    if (m_session->isLoggedIn()) {
-        LOG_INFO("User logged out", m_session->currentUser().username);
-        m_session->clear();
+    if (SessionManager::instance().isLoggedIn()) {
+        LOG_INFO("User logged out", SessionManager::instance().currentUser().username);
+        SessionManager::instance().clear();
     }
 }
 
 bool AuthService::isLoggedIn() const {
-    return m_session->isLoggedIn();
+    return SessionManager::instance().isLoggedIn();
 }
 
 const User& AuthService::currentUser() const {
-    return m_session->currentUser();
+    return SessionManager::instance().currentUser();
 }
 
 bool AuthService::hasPermission(const QString& permission) const {

@@ -11,6 +11,7 @@
 #include "repository/InventoryLogRepository.h"
 #include "repository/CustomerRepository.h"
 #include "repository/CouponRepository.h"
+#include "repository/UserRepository.h"
 
 // Services
 #include "services/BillingService.h"
@@ -18,10 +19,12 @@
 #include "services/InventoryService.h"
 #include "services/CustomerService.h"
 #include "services/CouponService.h"
+#include "services/AuthService.h"
 
 // Controllers
 #include "controllers/BillingController.h"
 #include "controllers/ProductController.h"
+#include "ui/LoginDialog.h"
 
 using namespace RetailMS;
 
@@ -54,11 +57,14 @@ int main(int argc, char *argv[]) {
     auto customerRepo = std::make_shared<CustomerRepository>(dbManager);
     auto couponRepo = std::make_shared<CouponRepository>(dbManager);
     
+    auto userRepository = std::make_shared<UserRepository>(dbManager);
+    
     // Setup Services
     auto productService = std::make_shared<ProductService>(productRepo);
     auto inventoryService = std::make_shared<InventoryService>(inventoryLogRepo, productRepo);
     auto customerService = std::make_shared<CustomerService>(customerRepo);
     auto couponService = std::make_shared<CouponService>(couponRepo);
+    auto authService = std::make_shared<AuthService>(userRepository);
     auto billingService = std::make_shared<BillingService>(
         invoiceRepo, productService, inventoryService, customerService, couponService
     );
@@ -69,6 +75,13 @@ int main(int argc, char *argv[]) {
 
     qDebug() << "Application started successfully.";
     
+    // Authentication Flow
+    LoginDialog loginDialog(authService);
+    if (loginDialog.exec() != QDialog::Accepted) {
+        qDebug() << "Login cancelled. Exiting application.";
+        return 0;
+    }
+
     // Setup UI
     MainWindow window(billingController, productController);
     window.show();

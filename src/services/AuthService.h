@@ -11,8 +11,7 @@ class SessionManager;
 
 class AuthService {
 public:
-    explicit AuthService(std::shared_ptr<UserRepository> userRepo,
-                         std::shared_ptr<SessionManager> session);
+    explicit AuthService(std::shared_ptr<UserRepository> userRepo);
 
     std::optional<User> login(const QString& username, const QString& password);
     void                logout();
@@ -23,7 +22,6 @@ public:
 
 private:
     std::shared_ptr<UserRepository> m_userRepo;
-    std::shared_ptr<SessionManager> m_session;
 };
 
 } // namespace RetailMS

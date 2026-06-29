@@ -5,6 +5,7 @@
 #include <QDate>
 #include <QSqlQuery>
 #include <QSqlRecord>
+#include "../services/SessionManager.h"
 
 namespace RetailMS {
 
@@ -14,6 +15,14 @@ DashboardPage::DashboardPage(QWidget* parent) : QWidget(parent) {
 }
 
 void DashboardPage::setupUi() {
+    if (SessionManager::instance().isLoggedIn() && !SessionManager::instance().currentUser().isAdmin()) {
+        setupStaffUi();
+    } else {
+        setupAdminUi();
+    }
+}
+
+void DashboardPage::setupAdminUi() {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
@@ -33,10 +42,10 @@ void DashboardPage::setupUi() {
     QHBoxLayout* statsLayout = new QHBoxLayout();
     statsLayout->setSpacing(20);
     
-    m_todayRevenueCard = new StatCardWidget("Today's Revenue", "₹0.00", "Live from database", this);
-    m_totalOrdersCard = new StatCardWidget("Today's Orders", "0", "Live from database", this);
-    m_customersCard = new StatCardWidget("Total Customers", "0", "Live from database", this);
-    m_inventoryValueCard = new StatCardWidget("Inventory Value", "₹0.00", "Live from database", this);
+    m_todayRevenueCard = new StatCardWidget("Today's Revenue", "₹0.00", "", this);
+    m_totalOrdersCard = new StatCardWidget("Today's Orders", "0", "", this);
+    m_customersCard = new StatCardWidget("Total Customers", "0", "", this);
+    m_inventoryValueCard = new StatCardWidget("Inventory Value", "₹0.00", "", this);
     
     statsLayout->addWidget(m_todayRevenueCard);
     statsLayout->addWidget(m_totalOrdersCard);
@@ -81,6 +90,32 @@ void DashboardPage::setupUi() {
     
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea);
+}
+
+void DashboardPage::setupStaffUi() {
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(40, 40, 40, 40);
+    mainLayout->setSpacing(24);
+    
+    QString name = SessionManager::instance().isLoggedIn() ? SessionManager::instance().currentUser().fullName : "User";
+    QLabel* welcome = new QLabel(QString("Welcome, %1").arg(name), this);
+    welcome->setStyleSheet("font-size: 24px; font-weight: bold; color: #FFFFFF;");
+    mainLayout->addWidget(welcome);
+
+    QHBoxLayout* statsLayout = new QHBoxLayout();
+    statsLayout->setSpacing(20);
+    
+    m_staffPersonalSalesCard = new StatCardWidget("My Sales Today", "₹0.00", "", this);
+    m_staffBillsGeneratedCard = new StatCardWidget("My Bills Today", "0", "", this);
+    m_staffShiftStatusCard = new StatCardWidget("Shift Status", "Active", "", this);
+    
+    statsLayout->addWidget(m_staffPersonalSalesCard);
+    statsLayout->addWidget(m_staffBillsGeneratedCard);
+    statsLayout->addWidget(m_staffShiftStatusCard);
+    statsLayout->addStretch();
+    
+    mainLayout->addLayout(statsLayout);
+    mainLayout->addStretch();
 }
 
 QWidget* DashboardPage::createChartsSection() {
@@ -181,6 +216,36 @@ QWidget* DashboardPage::createRecentTransactionsPanel() {
 }
 
 void DashboardPage::refreshData() {
+    if (SessionManager::instance().isLoggedIn() && !SessionManager::instance().currentUser().isAdmin()) {
+        refreshStaffData();
+    } else {
+        refreshAdminData();
+    }
+}
+
+void DashboardPage::refreshStaffData() {
+    auto& db = DatabaseManager::instance();
+    if (!db.isConnected()) return;
+    
+    if (!SessionManager::instance().isLoggedIn()) return;
+    int userId = SessionManager::instance().currentUser().id;
+
+    auto revRes = db.executeScalar(
+        "SELECT SUM(grand_total) FROM invoices WHERE DATE(invoice_date) = DATE('now') AND cashier_id = ?",
+        {userId}
+    );
+    double revenue = (revRes && !revRes->isNull()) ? revRes->toDouble() : 0.0;
+    if (m_staffPersonalSalesCard) m_staffPersonalSalesCard->setValue(QString("₹%1").arg(revenue, 0, 'f', 2));
+
+    auto ordRes = db.executeScalar(
+        "SELECT COUNT(*) FROM invoices WHERE DATE(invoice_date) = DATE('now') AND cashier_id = ?",
+        {userId}
+    );
+    int orders = (ordRes && !ordRes->isNull()) ? ordRes->toInt() : 0;
+    if (m_staffBillsGeneratedCard) m_staffBillsGeneratedCard->setValue(QString::number(orders));
+}
+
+void DashboardPage::refreshAdminData() {
     auto& db = DatabaseManager::instance();
     if (!db.isConnected()) return;
 

@@ -7,6 +7,7 @@
 #include <QGridLayout>
 #include <QComboBox>
 #include <memory>
+#include "ProductAutocompletePopup.h"
 
 namespace RetailMS {
 
@@ -54,6 +55,8 @@ private:
     QLabel* m_taxLabel;
     QLabel* m_totalLabel;
     QComboBox* m_paymentModeCombo;
+    
+    ProductAutocompletePopup* m_autocompletePopup{nullptr};
 };
 
 } // namespace RetailMS

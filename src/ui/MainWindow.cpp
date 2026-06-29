@@ -5,6 +5,7 @@
 #include "ProductPage.h"
 #include "../controllers/BillingController.h"
 #include "../controllers/ProductController.h"
+#include "../services/SessionManager.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -73,10 +74,21 @@ void MainWindow::setupUi() {
         m_contentArea->addWidget(label);
     };
 
-    addPage("Customers Page");
-    addPage("Inventory Page");
-    addPage("Reports Page");
-    addPage("Settings Page");
+    addPage("Inventory Page"); // 3
+    addPage("Categories Page"); // 4
+    addPage("Sales History Page"); // 5
+    addPage("Reports Page"); // 6
+    addPage("Staff Management Page"); // 7
+    addPage("Customers Page"); // 8
+    addPage("Settings Page"); // 9
+    addPage("My Bills Page"); // 10
+    addPage("Profile Page"); // 11
+    
+    // Access Denied Page (12)
+    QLabel* accessDenied = new QLabel("403 - Access Denied", m_contentArea);
+    accessDenied->setAlignment(Qt::AlignCenter);
+    accessDenied->setStyleSheet("font-size: 32px; color: #EF4444; font-weight: bold;");
+    m_contentArea->addWidget(accessDenied); // 12
 }
 
 void MainWindow::setupTopNavBar(QWidget* parent, QVBoxLayout* contentLayout) {
@@ -131,13 +143,18 @@ void MainWindow::setupTopNavBar(QWidget* parent, QVBoxLayout* contentLayout) {
 
 void MainWindow::setupConnections() {
     connect(m_sidebar, &SidebarWidget::pageSelected, this, [this](int index) {
-        m_contentArea->setCurrentIndex(index);
+        bool isAdmin = SessionManager::instance().isLoggedIn() && SessionManager::instance().currentUser().isAdmin();
         
-        // Update breadcrumb
-        QStringList pages = {"Dashboard", "Billing", "Products", "Customers", "Inventory", "Reports", "Settings"};
-        if (index >= 0 && index < pages.size()) {
-            m_breadcrumbLabel->setText(pages[index]);
+        // RBAC routing
+        if (!isAdmin) {
+            // Staff allowed: 0 (Dashboard), 1 (Billing), 2 (Products), 10 (My Bills), 11 (Profile)
+            if (index != 0 && index != 1 && index != 2 && index != 10 && index != 11) {
+                index = 12; // Access Denied
+            }
         }
+        
+        m_contentArea->setCurrentIndex(index);
+        m_breadcrumbLabel->setText(m_sidebar->getPageName(index));
     });
 
     connect(m_billingController.get(), &BillingController::checkoutComplete, m_dashboardPage, &DashboardPage::refreshData);

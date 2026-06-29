@@ -3,6 +3,7 @@
 #include "../database/QueryBuilder.h"
 #include <QSqlRecord>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QVariantMap>
 
@@ -17,6 +18,22 @@ Invoice InvoiceRepository::mapRow(const QSqlQuery& query) const {
     for (int i = 0; i < record.count(); ++i) {
         obj[record.fieldName(i)] = QJsonValue::fromVariant(record.value(i));
     }
+    QJsonArray itemsArr;
+    int invoiceId = obj["id"].toInt(-1);
+    if (invoiceId > 0) {
+        QueryBuilder qbItem(*m_db);
+        auto itemQuery = qbItem.table("invoice_items").where("invoice_id", invoiceId).get();
+        while (itemQuery.next()) {
+            QJsonObject itemObj;
+            QSqlRecord itemRecord = itemQuery.record();
+            for (int i = 0; i < itemRecord.count(); ++i) {
+                itemObj[itemRecord.fieldName(i)] = QJsonValue::fromVariant(itemRecord.value(i));
+            }
+            itemsArr.append(itemObj);
+        }
+    }
+    obj["items"] = itemsArr;
+    
     entity.fromJson(obj);
     return entity;
 }
@@ -50,20 +67,47 @@ int InvoiceRepository::save(const Invoice& entity) {
     obj.remove("id");
     obj.remove("created_at");
     obj.remove("updated_at");
+    QJsonArray itemsArr = obj.take("items").toArray(); // Remove and store items
     
     QVariantMap data = obj.toVariantMap();
     QueryBuilder qb(*m_db);
-    return qb.table("invoices").insert(data);
+    int invoiceId = qb.table("invoices").insert(data);
+    
+    if (invoiceId > 0) {
+        for (int i = 0; i < itemsArr.size(); ++i) {
+            QJsonObject itemObj = itemsArr[i].toObject();
+            itemObj.remove("id");
+            itemObj.insert("invoice_id", invoiceId);
+            QueryBuilder qbItem(*m_db);
+            qbItem.table("invoice_items").insert(itemObj.toVariantMap());
+        }
+    }
+    return invoiceId;
 }
 
 bool InvoiceRepository::update(const Invoice& entity) {
     QJsonObject obj = entity.toJson();
     obj.remove("id");
     obj.remove("created_at");
+    QJsonArray itemsArr = obj.take("items").toArray(); // Remove and store items
     
     QVariantMap data = obj.toVariantMap();
     QueryBuilder qb(*m_db);
-    return qb.table("invoices").where("id", entity.id).update(data);
+    bool ok = qb.table("invoices").where("id", entity.id).update(data);
+    
+    if (ok) {
+        QueryBuilder qbDel(*m_db);
+        qbDel.table("invoice_items").where("invoice_id", entity.id).remove();
+        
+        for (int i = 0; i < itemsArr.size(); ++i) {
+            QJsonObject itemObj = itemsArr[i].toObject();
+            itemObj.remove("id");
+            itemObj.insert("invoice_id", entity.id);
+            QueryBuilder qbItem(*m_db);
+            qbItem.table("invoice_items").insert(itemObj.toVariantMap());
+        }
+    }
+    return ok;
 }
 
 bool InvoiceRepository::remove(int id) {

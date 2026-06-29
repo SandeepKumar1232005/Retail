@@ -11,6 +11,7 @@ public:
     QString  sku;
     QString  barcode;
     int      categoryId{-1};
+    QString  categoryName; // For automatic mapping
     int      supplierId{-1};
     double   costPrice{0.0};
     double   sellingPrice{0.0};

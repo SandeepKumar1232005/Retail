@@ -31,15 +31,24 @@ private slots:
     void handleAIQuery();
 
 private:
-    void setupUi();
+    void setupUi(); // Will delegate based on role
+    void setupAdminUi();
+    void setupStaffUi();
+    void refreshAdminData();
+    void refreshStaffData();
     QWidget* createChartsSection();
     QWidget* createAIPanel();
     QWidget* createRecentTransactionsPanel();
 
-    StatCardWidget* m_todayRevenueCard;
-    StatCardWidget* m_totalOrdersCard;
-    StatCardWidget* m_customersCard;
-    StatCardWidget* m_inventoryValueCard;
+    StatCardWidget* m_todayRevenueCard{nullptr};
+    StatCardWidget* m_totalOrdersCard{nullptr};
+    StatCardWidget* m_customersCard{nullptr};
+    StatCardWidget* m_inventoryValueCard{nullptr};
+    
+    // Staff UI
+    StatCardWidget* m_staffPersonalSalesCard{nullptr};
+    StatCardWidget* m_staffBillsGeneratedCard{nullptr};
+    StatCardWidget* m_staffShiftStatusCard{nullptr};
     
     // AI Panel
     QTextEdit* m_chatArea;

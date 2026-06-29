@@ -18,12 +18,13 @@ public:
     std::optional<Product> getProductByBarcode(const QString& barcode) const;
     std::vector<Product> searchProducts(const QString& query) const;
     
-    int saveProduct(const Product& product);
-    bool updateProduct(const Product& product);
+    int saveProduct(Product& product);
+    bool updateProduct(Product& product);
     bool deleteProduct(int id);
 
 private:
     std::shared_ptr<ProductRepository> m_repo;
+    int resolveCategoryId(Product& product);
 };
 
 } // namespace RetailMS

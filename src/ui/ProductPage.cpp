@@ -2,6 +2,7 @@
 #include "ProductDialog.h"
 #include "../controllers/ProductController.h"
 #include "../database/DatabaseManager.h"
+#include "../services/SessionManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -10,6 +11,7 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
+#include <QMenu>
 
 namespace RetailMS {
 
@@ -40,7 +42,13 @@ void ProductPage::setupUi() {
     m_searchInput->setFixedWidth(300);
     
     m_categoryFilter = new QComboBox(this);
-    m_categoryFilter->addItems({"All Categories", "Groceries", "Beverages", "Electronics", "Clothing"});
+    m_categoryFilter->addItem("All Categories", -1);
+    
+    // Load categories dynamically from database
+    auto catQuery = DatabaseManager::instance().execute("SELECT id, name FROM categories ORDER BY name");
+    while (catQuery.next()) {
+        m_categoryFilter->addItem(catQuery.value("name").toString(), catQuery.value("id").toInt());
+    }
     m_categoryFilter->setFixedWidth(200);
     
     m_addProductButton = new QPushButton("Add Product", this);
@@ -58,6 +66,12 @@ void ProductPage::setupUi() {
     topLayout->addWidget(m_importButton);
     topLayout->addWidget(m_exportButton);
     topLayout->addWidget(m_addProductButton);
+    
+    if (SessionManager::instance().isLoggedIn() && !SessionManager::instance().currentUser().isAdmin()) {
+        m_importButton->hide();
+        m_exportButton->hide();
+        m_addProductButton->hide();
+    }
     
     mainLayout->addWidget(topBar);
     
@@ -102,6 +116,17 @@ void ProductPage::refreshTable() {
     auto products = m_controller->searchProducts(query);
     QString catFilter = m_categoryFilter->currentText();
     
+    // Refresh categories in case new ones were added
+    m_categoryFilter->blockSignals(true);
+    m_categoryFilter->clear();
+    m_categoryFilter->addItem("All Categories", -1);
+    auto catQuery = DatabaseManager::instance().execute("SELECT id, name FROM categories ORDER BY name");
+    while (catQuery.next()) {
+        m_categoryFilter->addItem(catQuery.value("name").toString(), catQuery.value("id").toInt());
+    }
+    m_categoryFilter->setCurrentText(catFilter);
+    m_categoryFilter->blockSignals(false);
+    
     // Fetch and filter products based on the selected category in memory
     std::vector<std::pair<Product, QString>> filtered;
     for (const auto& p : products) {
@@ -144,33 +169,40 @@ void ProductPage::refreshTable() {
         QHBoxLayout* actionLayout = new QHBoxLayout(actionsWidget);
         actionLayout->setContentsMargins(10, 5, 10, 5);
         actionLayout->setSpacing(10);
+        
+        if (SessionManager::instance().isLoggedIn() && SessionManager::instance().currentUser().isAdmin()) {
+            QPushButton* editBtn = new QPushButton("  Edit  ", this);
+            editBtn->setMinimumWidth(80);
+            editBtn->setMinimumHeight(32);
+            editBtn->setStyleSheet("background-color: #4CAF50; color: white; padding: 6px 20px; border-radius: 4px; font-weight: bold; font-size: 13px;");
+            editBtn->setCursor(Qt::PointingHandCursor);
+            connect(editBtn, &QPushButton::clicked, this, [this, p]() {
+                ProductDialog dialog(&p, this);
+                if (dialog.exec() == QDialog::Accepted) {
+                    Product updated = dialog.getProduct();
+                    m_controller->saveProduct(updated);
+                }
+            });
 
-        QPushButton* editBtn = new QPushButton("  Edit  ", this);
-        editBtn->setMinimumWidth(80);
-        editBtn->setMinimumHeight(32);
-        editBtn->setStyleSheet("background-color: #4CAF50; color: white; padding: 6px 20px; border-radius: 4px; font-weight: bold; font-size: 13px;");
-        editBtn->setCursor(Qt::PointingHandCursor);
-        connect(editBtn, &QPushButton::clicked, this, [this, p]() {
-            ProductDialog dialog(&p, this);
-            if (dialog.exec() == QDialog::Accepted) {
-                Product updated = dialog.getProduct();
-                m_controller->saveProduct(updated);
-            }
-        });
-
-        QPushButton* delBtn = new QPushButton("  Delete  ", this);
-        delBtn->setMinimumWidth(80);
-        delBtn->setMinimumHeight(32);
-        delBtn->setStyleSheet("background-color: #EF4444; color: white; padding: 6px 20px; border-radius: 4px; font-weight: bold; font-size: 13px;");
-        delBtn->setCursor(Qt::PointingHandCursor);
-        connect(delBtn, &QPushButton::clicked, this, [this, p]() {
-            if (QMessageBox::question(this, "Confirm Delete", "Are you sure you want to delete this product?") == QMessageBox::Yes) {
-                m_controller->deleteProduct(p.id);
-            }
-        });
-
-        actionLayout->addWidget(editBtn);
-        actionLayout->addWidget(delBtn);
+            QPushButton* deleteBtn = new QPushButton("  Delete  ", this);
+            deleteBtn->setMinimumWidth(80);
+            deleteBtn->setMinimumHeight(32);
+            deleteBtn->setStyleSheet("background-color: #EF4444; color: white; padding: 6px 20px; border-radius: 4px; font-weight: bold; font-size: 13px;");
+            deleteBtn->setCursor(Qt::PointingHandCursor);
+            connect(deleteBtn, &QPushButton::clicked, this, [this, p]() {
+                if (QMessageBox::question(this, "Confirm Delete", "Are you sure you want to delete this product?") == QMessageBox::Yes) {
+                    m_controller->deleteProduct(p.id);
+                }
+            });
+            
+            actionLayout->addWidget(editBtn);
+            actionLayout->addWidget(deleteBtn);
+        } else {
+            QLabel* lbl = new QLabel("Read-Only", this);
+            lbl->setAlignment(Qt::AlignCenter);
+            actionLayout->addWidget(lbl);
+        }
+        
         m_productTable->setCellWidget(i, 6, actionsWidget);
     }
 }
@@ -186,7 +218,8 @@ void ProductPage::onImportCsv() {
     }
     
     QTextStream in(&file);
-    int importedCount = 0;
+    int addedCount = 0;
+    int updatedCount = 0;
     
     // Check if categories are seeded. We will map category strings to IDs.
     auto& db = DatabaseManager::instance();
@@ -206,27 +239,27 @@ void ProductPage::onImportCsv() {
         p.sellingPrice = fields[3].toDouble();
         p.stockQuantity = (fields.size() > 4) ? fields[4].toDouble() : 100.0;
         
-        // Handle Category Name mapping to ID
-        QString categoryName = (fields.size() > 5) ? fields[5].trimmed() : "Groceries";
-        int categoryId = 2; // Default to Groceries
-        auto catRes = db.executeScalar("SELECT id FROM categories WHERE name = ? LIMIT 1;", { categoryName });
-        if (catRes && !catRes->isNull()) {
-            categoryId = catRes->toInt();
-        } else {
-            // Insert category dynamically
-            db.executeNonQuery("INSERT INTO categories (name, description) VALUES (?, ?);", { categoryName, "Dynamically created category" });
-            auto newCatRes = db.executeScalar("SELECT id FROM categories WHERE name = ? LIMIT 1;", { categoryName });
-            if (newCatRes && !newCatRes->isNull()) {
-                categoryId = newCatRes->toInt();
-            }
+        // If the CSV provides a category explicitly, set it so the backend can resolve it
+        if (fields.size() > 5 && !fields[5].trimmed().isEmpty()) {
+            p.categoryName = fields[5].trimmed();
         }
-        p.categoryId = categoryId;
         
-        m_controller->saveProduct(p);
-        importedCount++;
+
+        auto existingOpt = m_controller->getProductByBarcode(p.barcode);
+        if (existingOpt.has_value()) {
+            Product existing = existingOpt.value();
+            existing.stockQuantity += p.stockQuantity;
+            m_controller->saveProduct(existing, false);
+            updatedCount++;
+        } else {
+            m_controller->saveProduct(p, false);
+            addedCount++;
+        }
     }
     
-    QMessageBox::information(this, "Success", QString("Successfully imported %1 products from CSV.").arg(importedCount));
+    m_controller->notifyProductsUpdated();
+    QMessageBox::information(this, "Success", QString("Import complete: %1 added, %2 updated.")
+                                              .arg(addedCount).arg(updatedCount));
 }
 
 void ProductPage::onExportCsv() {

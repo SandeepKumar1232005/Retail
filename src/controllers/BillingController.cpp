@@ -76,7 +76,6 @@ void BillingController::setCustomer(int customerId) {
 void BillingController::finalizeInvoice(double amountPaid, Invoice::PaymentMode mode, const QString& ref) {
     try {
         Invoice finalInv = m_billingService->finaliseInvoice(m_currentInvoice, amountPaid, mode, ref);
-        emit successMessage("Payment processed successfully");
         emit checkoutComplete(finalInv);
         createNewInvoice();
     } catch (const std::exception& e) {

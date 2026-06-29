@@ -5,6 +5,7 @@
 #include <QSqlError>
 #include <QDir>
 #include <QFileInfo>
+#include "../utils/CryptoUtils.h"
 
 namespace RetailMS {
 
@@ -141,6 +142,21 @@ void DatabaseManager::runMigrations(const QString& migrationsDir) {
     MigrationRunner runner(*this);
     if (!runner.runMigrations(migrationsDir)) {
         LOG_ERROR("Failed to apply migrations!");
+    }
+    
+    // Seed default users if the table is empty
+    auto userCountOpt = executeScalar("SELECT COUNT(*) FROM users;");
+    if (userCountOpt && userCountOpt->toInt() == 0) {
+        QString salt1 = CryptoUtils::generateSalt();
+        QString hash1 = CryptoUtils::hashPassword("admin123", salt1);
+        executeNonQuery("INSERT INTO users (username, password_hash, salt, full_name, role) VALUES (?, ?, ?, ?, ?)",
+                        {"admin", hash1, salt1, "Administrator", "admin"});
+                        
+        QString salt2 = CryptoUtils::generateSalt();
+        QString hash2 = CryptoUtils::hashPassword("staff123", salt2);
+        executeNonQuery("INSERT INTO users (username, password_hash, salt, full_name, role) VALUES (?, ?, ?, ?, ?)",
+                        {"staff", hash2, salt2, "Staff Worker", "cashier"});
+        LOG_INFO("Seeded default admin and staff users.");
     }
 }
 

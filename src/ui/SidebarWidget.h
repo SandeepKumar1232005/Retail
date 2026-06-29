@@ -15,6 +15,8 @@ public:
 
     int sidebarWidth() const { return this->width(); }
     void setSidebarWidth(int w) { this->setFixedWidth(w); }
+    
+    QString getPageName(int index) const;
 
 signals:
     void pageSelected(int index);

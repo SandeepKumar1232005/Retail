@@ -1,6 +1,7 @@
 #include "BillingPage.h"
 #include "../controllers/BillingController.h"
 #include "../database/DatabaseManager.h"
+#include "CheckoutSuccessDialog.h"
 #include <QSqlQuery>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -110,7 +111,13 @@ QWidget* BillingPage::createCenterPane() {
     m_cartTable->setColumnWidth(4, 50);
     layout->addWidget(m_cartTable, 1);
     
-    // Connect Add button to barcode input slot
+    m_autocompletePopup = new ProductAutocompletePopup(m_barcodeInput);
+    connect(m_autocompletePopup, &ProductAutocompletePopup::productSelected, this, [this](int productId) {
+        m_controller->addProductToInvoice(productId, 1.0);
+        m_barcodeInput->setFocus();
+    });
+
+    // Connect Add button to barcode input slot (fallback if they click Add)
     connect(addBtn, &QPushButton::clicked, this, [this]() {
         QString barcode = m_barcodeInput->text();
         if (!barcode.isEmpty()) {
@@ -224,14 +231,6 @@ QWidget* BillingPage::createBottomRecommendationsPane() {
 }
 
 void BillingPage::setupConnections() {
-    connect(m_barcodeInput, &QLineEdit::returnPressed, this, [this]() {
-        QString barcode = m_barcodeInput->text();
-        if (!barcode.isEmpty()) {
-            m_controller->addProductByBarcode(barcode);
-            m_barcodeInput->clear();
-        }
-    });
-    
     connect(m_controller.get(), &BillingController::invoiceUpdated, this, [this](const Invoice&) {
         refreshTable();
         refreshTotals();
@@ -243,6 +242,20 @@ void BillingPage::setupConnections() {
     
     connect(m_controller.get(), &BillingController::successMessage, this, [this](const QString& msg) {
         QMessageBox::information(this, "Success", msg);
+    });
+
+    connect(m_controller.get(), &BillingController::checkoutComplete, this, [this](const Invoice& inv) {
+        QString modeStr;
+        switch(inv.paymentMode) {
+            case Invoice::PaymentMode::Card: modeStr = "Credit Card"; break;
+            case Invoice::PaymentMode::UPI: modeStr = "UPI"; break;
+            case Invoice::PaymentMode::Split: modeStr = "Split Payment"; break;
+            default: modeStr = "Cash"; break;
+        }
+        
+        CheckoutSuccessDialog dialog(inv, modeStr, this);
+        connect(&dialog, &CheckoutSuccessDialog::printRequested, this, &BillingPage::onPrintInvoice);
+        dialog.exec();
     });
 }
 
@@ -354,7 +367,6 @@ void BillingPage::onCheckout() {
     else if (modeStr == "split payment") mode = Invoice::PaymentMode::Split;
     
     m_controller->finalizeInvoice(inv.grandTotal, mode);
-    QMessageBox::information(this, "Checkout Complete", "Invoice generated and finalized successfully.");
 }
 
 void BillingPage::onPrintInvoice() {
