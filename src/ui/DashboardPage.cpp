@@ -231,14 +231,14 @@ void DashboardPage::refreshStaffData() {
     int userId = SessionManager::instance().currentUser().id;
 
     auto revRes = db.executeScalar(
-        "SELECT SUM(grand_total) FROM invoices WHERE DATE(invoice_date) = DATE('now') AND cashier_id = ?",
+        "SELECT SUM(grand_total) FROM invoices WHERE DATE(invoice_date) = DATE('now') AND user_id = ?",
         {userId}
     );
     double revenue = (revRes && !revRes->isNull()) ? revRes->toDouble() : 0.0;
     if (m_staffPersonalSalesCard) m_staffPersonalSalesCard->setValue(QString("₹%1").arg(revenue, 0, 'f', 2));
 
     auto ordRes = db.executeScalar(
-        "SELECT COUNT(*) FROM invoices WHERE DATE(invoice_date) = DATE('now') AND cashier_id = ?",
+        "SELECT COUNT(*) FROM invoices WHERE DATE(invoice_date) = DATE('now') AND user_id = ?",
         {userId}
     );
     int orders = (ordRes && !ordRes->isNull()) ? ordRes->toInt() : 0;
