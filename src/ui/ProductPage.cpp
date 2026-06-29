@@ -66,6 +66,7 @@ void ProductPage::setupUi() {
     m_productTable->setColumnCount(7);
     m_productTable->setHorizontalHeaderLabels({"Image", "Barcode", "Name", "Category", "Stock", "Price", "Actions"});
     m_productTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+    m_productTable->setColumnWidth(6, 250);
     m_productTable->verticalHeader()->setDefaultSectionSize(60); // Taller rows for images
     mainLayout->addWidget(m_productTable, 1);
 }
@@ -144,8 +145,10 @@ void ProductPage::refreshTable() {
         actionLayout->setContentsMargins(10, 5, 10, 5);
         actionLayout->setSpacing(10);
 
-        QPushButton* editBtn = new QPushButton("Edit", this);
-        editBtn->setObjectName("primaryButton");
+        QPushButton* editBtn = new QPushButton("  Edit  ", this);
+        editBtn->setMinimumWidth(80);
+        editBtn->setMinimumHeight(32);
+        editBtn->setStyleSheet("background-color: #4CAF50; color: white; padding: 6px 20px; border-radius: 4px; font-weight: bold; font-size: 13px;");
         editBtn->setCursor(Qt::PointingHandCursor);
         connect(editBtn, &QPushButton::clicked, this, [this, p]() {
             ProductDialog dialog(&p, this);
@@ -155,8 +158,10 @@ void ProductPage::refreshTable() {
             }
         });
 
-        QPushButton* delBtn = new QPushButton("Delete", this);
-        delBtn->setObjectName("dangerButton");
+        QPushButton* delBtn = new QPushButton("  Delete  ", this);
+        delBtn->setMinimumWidth(80);
+        delBtn->setMinimumHeight(32);
+        delBtn->setStyleSheet("background-color: #EF4444; color: white; padding: 6px 20px; border-radius: 4px; font-weight: bold; font-size: 13px;");
         delBtn->setCursor(Qt::PointingHandCursor);
         connect(delBtn, &QPushButton::clicked, this, [this, p]() {
             if (QMessageBox::question(this, "Confirm Delete", "Are you sure you want to delete this product?") == QMessageBox::Yes) {

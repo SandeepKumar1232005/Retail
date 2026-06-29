@@ -1,6 +1,7 @@
 #include "QueryBuilder.h"
 #include "DatabaseManager.h"
 #include "../utils/Logger.h"
+#include <QSqlError>
 
 namespace RetailMS {
 
@@ -96,7 +97,7 @@ int QueryBuilder::insert(const QVariantMap& data) {
     if (query.exec()) {
         return query.lastInsertId().toInt();
     } else {
-        LOG_ERROR("QueryBuilder INSERT error: " + sql);
+        LOG_ERROR("QueryBuilder INSERT error: " + sql + " | " + query.lastError().text());
         return -1;
     }
 }
@@ -130,7 +131,7 @@ bool QueryBuilder::update(const QVariantMap& data) {
     if (query.exec()) {
         return true;
     } else {
-        LOG_ERROR("QueryBuilder UPDATE error: " + sql);
+        LOG_ERROR("QueryBuilder UPDATE error: " + sql + " | " + query.lastError().text());
         return false;
     }
 }

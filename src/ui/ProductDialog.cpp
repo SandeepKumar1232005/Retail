@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QUuid>
+#include "../database/DatabaseManager.h"
 
 namespace RetailMS {
 
@@ -20,6 +21,14 @@ ProductDialog::ProductDialog(const Product* product, QWidget* parent) : QDialog(
         m_priceInput->setValue(product->sellingPrice);
         m_mrpInput->setValue(product->mrp);
         m_stockInput->setValue(static_cast<int>(product->stockQuantity));
+        
+        // Find category index
+        for (int i = 0; i < m_categoryInput->count(); ++i) {
+            if (m_categoryInput->itemData(i).toInt() == product->categoryId) {
+                m_categoryInput->setCurrentIndex(i);
+                break;
+            }
+        }
     } else {
         m_id = -1;
     }
@@ -33,9 +42,20 @@ void ProductDialog::setupUi() {
     m_barcodeInput = new QLineEdit(this);
     m_nameInput = new QLineEdit(this);
     m_skuInput = new QLineEdit(this);
+    m_categoryInput = new QComboBox(this);
     
     // Auto-generate a default SKU
     m_skuInput->setText("SKU-" + QUuid::createUuid().toString().mid(1, 8).toUpper());
+    
+    // Load categories
+    auto& db = DatabaseManager::instance();
+    auto catQuery = db.execute("SELECT id, name FROM categories ORDER BY name");
+    while (catQuery.next()) {
+        m_categoryInput->addItem(catQuery.value("name").toString(), catQuery.value("id").toInt());
+    }
+    if (m_categoryInput->count() == 0) {
+        m_categoryInput->addItem("General", 1);
+    }
 
     m_priceInput = new QDoubleSpinBox(this);
     m_priceInput->setRange(0.0, 1000000.0);
@@ -59,6 +79,7 @@ void ProductDialog::setupUi() {
     formLayout->addRow("Barcode:", m_barcodeInput);
     formLayout->addRow("Name:", m_nameInput);
     formLayout->addRow("SKU:", m_skuInput);
+    formLayout->addRow("Category:", m_categoryInput);
     formLayout->addRow("Cost Price (₹):", m_costPriceInput);
     formLayout->addRow("Selling Price (₹):", m_priceInput);
     formLayout->addRow("MRP (₹):", m_mrpInput);
@@ -83,9 +104,13 @@ void ProductDialog::setupUi() {
 Product ProductDialog::getProduct() const {
     Product p;
     p.id = m_id;
-    p.barcode = m_barcodeInput->text();
+    p.barcode = m_barcodeInput->text().trimmed();
+    if (p.barcode.isEmpty()) {
+        p.barcode = QUuid::createUuid().toString().mid(1, 12).toUpper(); // Auto barcode
+    }
     p.name = m_nameInput->text();
     p.sku = m_skuInput->text();
+    p.categoryId = m_categoryInput->currentData().toInt();
     p.costPrice = m_costPriceInput->value();
     p.sellingPrice = m_priceInput->value();
     p.mrp = m_mrpInput->value();

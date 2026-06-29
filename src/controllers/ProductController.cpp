@@ -13,8 +13,11 @@ std::vector<Product> ProductController::searchProducts(const QString& query) con
 
 void ProductController::saveProduct(const Product& p) {
     try {
-        if (p.id < 0) m_productService->saveProduct(p);
-        else m_productService->updateProduct(p);
+        if (p.id < 0) {
+            m_productService->saveProduct(p);
+        } else {
+            m_productService->updateProduct(p);
+        }
         emit successMessage("Product saved successfully");
         emit productListChanged();
     } catch (const std::exception& e) {

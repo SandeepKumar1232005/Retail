@@ -29,11 +29,19 @@ int ProductService::saveProduct(const Product& product) {
     if (product.name.isEmpty()) {
         throw ValidationException("Product name cannot be empty", "ERR_VALIDATION");
     }
-    return m_repo->save(product);
+    int result = m_repo->save(product);
+    if (result < 0) {
+        throw AppException("Failed to save product to database. Check for duplicate barcode or SKU.", "ERR_DB_INSERT");
+    }
+    return result;
 }
 
 bool ProductService::updateProduct(const Product& product) {
-    return m_repo->update(product);
+    bool ok = m_repo->update(product);
+    if (!ok) {
+        throw AppException("Failed to update product in database.", "ERR_DB_UPDATE");
+    }
+    return ok;
 }
 
 bool ProductService::deleteProduct(int id) {

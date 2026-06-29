@@ -3,6 +3,7 @@
 #include <QLineEdit>
 #include <QDoubleSpinBox>
 #include <QSpinBox>
+#include <QComboBox>
 #include "../models/Product.h"
 
 namespace RetailMS {
@@ -21,6 +22,7 @@ private:
     QLineEdit* m_barcodeInput;
     QLineEdit* m_nameInput;
     QLineEdit* m_skuInput;
+    QComboBox* m_categoryInput;
     QDoubleSpinBox* m_priceInput;
     QDoubleSpinBox* m_costPriceInput;
     QDoubleSpinBox* m_mrpInput;
