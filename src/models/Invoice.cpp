@@ -64,6 +64,12 @@ QJsonObject Invoice::toJson() const {
     if (customerId > 0) {
         obj["customer_id"] = customerId;
     }
+    if (!customerName.isEmpty()) {
+        obj["customer_name"] = customerName;
+    }
+    if (!customerPhone.isEmpty()) {
+        obj["customer_phone"] = customerPhone;
+    }
     obj["user_id"] = userId;
     
     QJsonArray itemsArr;
@@ -99,6 +105,8 @@ void Invoice::fromJson(const QJsonObject& obj) {
     id = obj["id"].toInt(-1);
     invoiceNumber = obj["invoice_number"].toString();
     customerId = obj["customer_id"].toInt(-1);
+    customerName = obj["customer_name"].toString();
+    customerPhone = obj["customer_phone"].toString();
     userId = obj["user_id"].toInt(-1);
     
     items.clear();

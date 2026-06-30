@@ -44,6 +44,10 @@ private:
     StatCardWidget* m_totalOrdersCard{nullptr};
     StatCardWidget* m_customersCard{nullptr};
     StatCardWidget* m_inventoryValueCard{nullptr};
+    StatCardWidget* m_overallSalesCard{nullptr};
+    StatCardWidget* m_totalBillsCard{nullptr};
+    StatCardWidget* m_avgBillValueCard{nullptr};
+    StatCardWidget* m_outOfStockCard{nullptr};
     
     // Staff UI
     StatCardWidget* m_staffPersonalSalesCard{nullptr};

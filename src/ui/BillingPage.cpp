@@ -1,420 +1,231 @@
 #include "BillingPage.h"
 #include "../controllers/BillingController.h"
 #include "../database/DatabaseManager.h"
-#include "CheckoutSuccessDialog.h"
-#include <QSqlQuery>
+#include "../services/SessionManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QPushButton>
-#include <QHeaderView>
 #include <QMessageBox>
-#include <QGroupBox>
+#include <QSqlQuery>
+#include <QShortcut>
 
 namespace RetailMS {
 
 BillingPage::BillingPage(std::shared_ptr<BillingController> controller, QWidget* parent)
     : QWidget(parent), m_controller(std::move(controller)) {
-    m_selectedCategoryFilter = "All";
     setupUi();
     setupConnections();
-    refreshTotals();
+    setupShortcuts();
+    
+    // Initial loads
+    m_cartPanel->refreshCart(m_controller->currentInvoice());
+    m_summaryPanel->refreshSummary(m_controller->currentInvoice());
+    m_actionPanel->refreshTotals(m_controller->currentInvoice());
+    
+    m_productPanel->setFocusToSearch();
 }
 
 void BillingPage::setupUi() {
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
+    QHBoxLayout* mainLayout = new QHBoxLayout(this);
+    mainLayout->setContentsMargins(15, 15, 15, 15);
     mainLayout->setSpacing(20);
     
-    QHBoxLayout* topLayout = new QHBoxLayout();
-    topLayout->setSpacing(20);
+    // --- Layout Architecture ---
+    // [ Left Side (70%) ]  | [ Right Side (30%) ]
+    //   Customer Panel     |   Checkout Sidebar
+    //   Product Search     |
+    //   Cart Panel         |
     
-    // 3 Panes
-    topLayout->addWidget(createLeftPane(), 3);
-    topLayout->addWidget(createCenterPane(), 4);
-    topLayout->addWidget(createRightPane(), 3);
+    // --- LEFT SIDE (70%) ---
+    QWidget* leftWidget = new QWidget(this);
+    QVBoxLayout* leftLayout = new QVBoxLayout(leftWidget);
+    leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(15);
     
-    mainLayout->addLayout(topLayout, 1);
+    m_customerPanel = new CustomerPanel(m_controller->customerService(), leftWidget);
+    leftLayout->addWidget(m_customerPanel);
     
-    // Bottom recommendations
-    mainLayout->addWidget(createBottomRecommendationsPane());
-}
-
-QWidget* BillingPage::createLeftPane() {
-    QWidget* pane = new QWidget(this);
-    pane->setObjectName("statCard");
-    QVBoxLayout* layout = new QVBoxLayout(pane);
+    m_productPanel = new ProductSelectionPanel(leftWidget);
+    leftLayout->addWidget(m_productPanel);
     
-    QLabel* title = new QLabel("Products", pane);
-    title->setStyleSheet("font-size: 16px; font-weight: bold;");
-    layout->addWidget(title);
+    m_cartPanel = new CartPanel(leftWidget);
+    leftLayout->addWidget(m_cartPanel, 1); // Allow cart to expand
     
-    m_productSearchInput = new QLineEdit(pane);
-    m_productSearchInput->setPlaceholderText("Search by name/barcode...");
-    layout->addWidget(m_productSearchInput);
+    mainLayout->addWidget(leftWidget, 7); // 70% width
     
-    QHBoxLayout* filters = new QHBoxLayout();
-    QPushButton* cat1 = new QPushButton("All", pane);
-    QPushButton* cat2 = new QPushButton("Groceries", pane);
-    QPushButton* cat3 = new QPushButton("Beverages", pane);
-    filters->addWidget(cat1);
-    filters->addWidget(cat2);
-    filters->addWidget(cat3);
-    filters->addStretch();
-    layout->addLayout(filters);
+    // --- RIGHT SIDE (30%) ---
+    m_actionPanel = new PaymentActionPanel(this);
+    mainLayout->addWidget(m_actionPanel, 3); // 30% width
     
-    // Product grid scroll area
-    QScrollArea* scrollArea = new QScrollArea(pane);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setStyleSheet("background: transparent; border: none;");
-    m_gridWidget = new QWidget(scrollArea);
-    m_gridWidget->setStyleSheet("background: transparent;");
-    m_productGrid = new QGridLayout(m_gridWidget);
-    m_productGrid->setSpacing(10);
-    
-    reloadProductGrid();
-    
-    scrollArea->setWidget(m_gridWidget);
-    layout->addWidget(scrollArea, 1);
-    
-    connect(m_productSearchInput, &QLineEdit::textChanged, this, &BillingPage::reloadProductGrid);
-    
-    connect(cat1, &QPushButton::clicked, this, [this]() { onCategoryFilter("All"); });
-    connect(cat2, &QPushButton::clicked, this, [this]() { onCategoryFilter("Groceries"); });
-    connect(cat3, &QPushButton::clicked, this, [this]() { onCategoryFilter("Beverages"); });
-    
-    return pane;
-}
-
-QWidget* BillingPage::createCenterPane() {
-    QWidget* pane = new QWidget(this);
-    pane->setObjectName("statCard");
-    QVBoxLayout* layout = new QVBoxLayout(pane);
-    
-    QLabel* title = new QLabel("Shopping Cart", pane);
-    title->setStyleSheet("font-size: 16px; font-weight: bold;");
-    layout->addWidget(title);
-    
-    QHBoxLayout* scanLayout = new QHBoxLayout();
-    m_barcodeInput = new QLineEdit(pane);
-    m_barcodeInput->setPlaceholderText("Scan Barcode...");
-    QPushButton* addBtn = new QPushButton("Add", pane);
-    addBtn->setObjectName("primaryButton");
-    scanLayout->addWidget(m_barcodeInput);
-    scanLayout->addWidget(addBtn);
-    layout->addLayout(scanLayout);
-    
-    m_cartTable = new QTableWidget(pane);
-    m_cartTable->setColumnCount(5);
-    m_cartTable->setHorizontalHeaderLabels({"Item", "Qty", "Price", "Total", ""});
-    m_cartTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    m_cartTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
-    m_cartTable->setColumnWidth(4, 50);
-    layout->addWidget(m_cartTable, 1);
-    
-    m_autocompletePopup = new ProductAutocompletePopup(m_barcodeInput);
-    connect(m_autocompletePopup, &ProductAutocompletePopup::productSelected, this, [this](int productId) {
-        m_controller->addProductToInvoice(productId, 1.0);
-        m_barcodeInput->setFocus();
-    });
-
-    // Connect Add button to barcode input slot (fallback if they click Add)
-    connect(addBtn, &QPushButton::clicked, this, [this]() {
-        QString barcode = m_barcodeInput->text();
-        if (!barcode.isEmpty()) {
-            m_controller->addProductByBarcode(barcode);
-            m_barcodeInput->clear();
-        }
-    });
-    
-    return pane;
-}
-
-QWidget* BillingPage::createRightPane() {
-    QWidget* pane = new QWidget(this);
-    pane->setObjectName("statCard");
-    QVBoxLayout* layout = new QVBoxLayout(pane);
-    
-    QLabel* title = new QLabel("Invoice Summary", pane);
-    title->setStyleSheet("font-size: 16px; font-weight: bold;");
-    layout->addWidget(title);
-    layout->addSpacing(20);
-    
-    auto addSummaryRow = [this, layout](const QString& label, QLabel*& valueLabel, bool bold = false) {
-        QHBoxLayout* row = new QHBoxLayout();
-        QLabel* l = new QLabel(label, this);
-        valueLabel = new QLabel("₹0.00", this);
-        valueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        
-        if (bold) {
-            l->setStyleSheet("font-weight: bold; font-size: 18px;");
-            valueLabel->setStyleSheet("font-weight: bold; font-size: 22px; color: #4CAF50;");
-        } else {
-            l->setStyleSheet("color: #A9B1BC;");
-        }
-        
-        row->addWidget(l);
-        row->addWidget(valueLabel);
-        layout->addLayout(row);
-    };
-    
-    addSummaryRow("Subtotal", m_subtotalLabel);
-    addSummaryRow("Discount", m_discountLabel);
-    addSummaryRow("GST (CGST+SGST)", m_taxLabel);
-    
-    QFrame* line = new QFrame(pane);
-    line->setFrameShape(QFrame::HLine);
-    line->setStyleSheet("background-color: #2A2D35;");
-    layout->addWidget(line);
-    
-    addSummaryRow("Grand Total", m_totalLabel, true);
-    
-    layout->addStretch();
-    
-    QLabel* pModeLbl = new QLabel("Payment Mode", pane);
-    layout->addWidget(pModeLbl);
-    
-    m_paymentModeCombo = new QComboBox(pane);
-    m_paymentModeCombo->addItems({"Cash", "Credit Card", "UPI", "Split Payment"});
-    layout->addWidget(m_paymentModeCombo);
-    
-    layout->addSpacing(20);
-    
-    QPushButton* checkoutBtn = new QPushButton("Generate Invoice", pane);
-    checkoutBtn->setObjectName("primaryButton");
-    checkoutBtn->setMinimumHeight(50);
-    checkoutBtn->setCursor(Qt::PointingHandCursor);
-    layout->addWidget(checkoutBtn);
-    
-    QHBoxLayout* extraActions = new QHBoxLayout();
-    QPushButton* printBtn = new QPushButton("Print", pane);
-    printBtn->setCursor(Qt::PointingHandCursor);
-    QPushButton* emailBtn = new QPushButton("Email", pane);
-    emailBtn->setCursor(Qt::PointingHandCursor);
-    extraActions->addWidget(printBtn);
-    extraActions->addWidget(emailBtn);
-    layout->addLayout(extraActions);
-    
-    connect(checkoutBtn, &QPushButton::clicked, this, &BillingPage::onCheckout);
-    connect(printBtn, &QPushButton::clicked, this, &BillingPage::onPrintInvoice);
-    connect(emailBtn, &QPushButton::clicked, this, &BillingPage::onEmailInvoice);
-    
-    return pane;
-}
-
-QWidget* BillingPage::createBottomRecommendationsPane() {
-    QWidget* pane = new QWidget(this);
-    pane->setObjectName("statCard");
-    pane->setFixedHeight(120);
-    QHBoxLayout* layout = new QHBoxLayout(pane);
-    
-    QLabel* title = new QLabel("✨ AI Suggested Add-ons:", pane);
-    title->setStyleSheet("color: #4CAF50; font-weight: bold;");
-    layout->addWidget(title);
-    
-    QPushButton* bagBtn = new QPushButton("Carry Bag (₹10)", pane);
-    bagBtn->setCursor(Qt::PointingHandCursor);
-    QPushButton* waterBtn = new QPushButton("Water Bottle (₹20)", pane);
-    waterBtn->setCursor(Qt::PointingHandCursor);
-    QPushButton* chocBtn = new QPushButton("Chocolates (₹50)", pane);
-    chocBtn->setCursor(Qt::PointingHandCursor);
-    
-    layout->addWidget(bagBtn);
-    layout->addWidget(waterBtn);
-    layout->addWidget(chocBtn);
-    
-    connect(bagBtn, &QPushButton::clicked, this, [this]() { onAddOnClicked("Carry Bag", 10.00); });
-    connect(waterBtn, &QPushButton::clicked, this, [this]() { onAddOnClicked("Water Bottle", 20.00); });
-    connect(chocBtn, &QPushButton::clicked, this, [this]() { onAddOnClicked("Chocolates", 50.00); });
-    
-    layout->addStretch();
-    return pane;
+    // --- INVOICE PREVIEW DIALOG ---
+    // Instantiated as a popup, not added to any layout
+    m_summaryPanel = new InvoiceSummaryPanel(this);
 }
 
 void BillingPage::setupConnections() {
-    connect(m_controller.get(), &BillingController::invoiceUpdated, this, [this](const Invoice&) {
-        refreshTable();
-        refreshTotals();
+    // Controller to UI Updates
+    connect(m_controller.get(), &BillingController::invoiceUpdated, this, [this](const Invoice& inv) {
+        m_cartPanel->refreshCart(inv);
+        m_summaryPanel->refreshSummary(inv);
+        m_actionPanel->refreshTotals(inv);
+        if (inv.customerId <= 0 && inv.customerPhone.isEmpty()) {
+            m_customerPanel->clear();
+        }
     });
     
-    connect(m_controller.get(), &BillingController::errorOccurred, this, [this](const QString& msg) {
-        QMessageBox::critical(this, "Error", msg);
-    });
-    
-    connect(m_controller.get(), &BillingController::successMessage, this, [this](const QString& msg) {
-        QMessageBox::information(this, "Success", msg);
-    });
-
     connect(m_controller.get(), &BillingController::checkoutComplete, this, [this](const Invoice& inv) {
-        QString modeStr;
-        switch(inv.paymentMode) {
-            case Invoice::PaymentMode::Card: modeStr = "Credit Card"; break;
-            case Invoice::PaymentMode::UPI: modeStr = "UPI"; break;
-            case Invoice::PaymentMode::Split: modeStr = "Split Payment"; break;
-            default: modeStr = "Cash"; break;
+        m_summaryPanel->refreshSummary(inv);
+        m_summaryPanel->exec();
+        QMessageBox::information(this, "Success", QString("Invoice %1 finalized.").arg(inv.invoiceNumber));
+        m_customerPanel->clear();
+    });
+
+    connect(m_controller.get(), &BillingController::errorOccurred, this, [this](const QString& msg) {
+        QMessageBox::warning(this, "Error", msg);
+    });
+
+    // Customer interactions
+    connect(m_customerPanel, &CustomerPanel::customerSelected, this, [this](int id) {
+        m_controller->setCustomer(id);
+    });
+    connect(m_customerPanel, &CustomerPanel::newCustomerPhoneEntered, this, [this](const QString& phone) {
+        m_controller->setCustomerPhone(phone);
+    });
+    connect(m_customerPanel, &CustomerPanel::redeemPointsRequested, this, [this](int points) {
+        m_controller->redeemLoyaltyPoints(points);
+    });
+    connect(m_customerPanel, &CustomerPanel::focusProductSearchRequested, m_productPanel, &ProductSelectionPanel::setFocusToSearch);
+
+    // Product search interactions
+    connect(m_productPanel, &ProductSelectionPanel::searchRequested, this, &BillingPage::loadProducts);
+    connect(m_productPanel, &ProductSelectionPanel::productSelected, this, [this](int productId) {
+        m_controller->addProductToInvoice(productId, 1.0);
+        m_productPanel->setFocusToSearch();
+    });
+    
+    // Cart interactions
+    connect(m_cartPanel, &CartPanel::quantityChanged, this, [this](int idx, double qty) {
+        m_controller->updateItemQuantity(idx, qty);
+    });
+    connect(m_cartPanel, &CartPanel::itemRemoved, this, [this](int idx) {
+        m_controller->removeItem(idx);
+        m_productPanel->setFocusToSearch();
+    });
+    
+    // Action Panel
+    connect(m_actionPanel, &PaymentActionPanel::generateInvoiceRequested, this, [this](Invoice::PaymentMode mode) {
+        auto inv = m_controller->currentInvoice();
+        if (inv.items.empty()) {
+            QMessageBox::warning(this, "Empty", "Cannot generate empty invoice.");
+            return;
         }
-        
-        CheckoutSuccessDialog dialog(inv, modeStr, this);
-        connect(&dialog, &CheckoutSuccessDialog::printRequested, this, &BillingPage::onPrintInvoice);
-        dialog.exec();
+        if (inv.customerId <= 0 && inv.customerPhone.isEmpty()) {
+            QMessageBox::warning(this, "Customer Required", "Billing cannot continue unless a valid mobile number is entered.");
+            return;
+        }
+        m_controller->finalizeInvoice(inv.grandTotal, mode);
+    });
+    
+    connect(m_actionPanel, &PaymentActionPanel::holdBillRequested, m_controller.get(), &BillingController::holdCurrentBill);
+    
+    connect(m_actionPanel, &PaymentActionPanel::resumeBillRequested, this, [this]() {
+        m_controller->resumeBill(0);
+    });
+    
+    connect(m_actionPanel, &PaymentActionPanel::clearCartRequested, this, [this]() {
+        m_controller->createNewInvoice();
+    });
+    
+    connect(m_actionPanel, &PaymentActionPanel::cancelBillRequested, this, [this]() {
+        m_controller->createNewInvoice();
+    });
+    
+    connect(m_actionPanel, &PaymentActionPanel::printRequested, this, [this]() {
+        QMessageBox::information(this, "Print", "Print requested.");
+    });
+    
+    connect(m_actionPanel, &PaymentActionPanel::previewRequested, this, [this]() {
+        m_summaryPanel->exec();
     });
 }
 
-void BillingPage::refreshTable() {
-    Invoice inv = m_controller->currentInvoice();
-    m_cartTable->setRowCount(inv.items.size());
+void BillingPage::setupShortcuts() {
+    auto* scF2 = new QShortcut(QKeySequence(Qt::Key_F2), this);
+    connect(scF2, &QShortcut::activated, m_controller.get(), &BillingController::createNewInvoice);
+
+    auto* scF5 = new QShortcut(QKeySequence(Qt::Key_F5), this);
+    connect(scF5, &QShortcut::activated, m_controller.get(), &BillingController::holdCurrentBill);
+    auto* scF6 = new QShortcut(QKeySequence(Qt::Key_F6), this);
+    connect(scF6, &QShortcut::activated, this, [this]() { m_controller->resumeBill(0); });
     
-    for (int i = 0; i < inv.items.size(); ++i) {
-        const auto& item = inv.items[i];
-        m_cartTable->setItem(i, 0, new QTableWidgetItem(item.productName));
-        m_cartTable->setItem(i, 1, new QTableWidgetItem(QString::number(item.quantity)));
-        m_cartTable->setItem(i, 2, new QTableWidgetItem(QString::number(item.sellingPrice, 'f', 2)));
-        m_cartTable->setItem(i, 3, new QTableWidgetItem(QString::number(item.total, 'f', 2)));
-        
-        QPushButton* removeBtn = new QPushButton("✕", this);
-        removeBtn->setObjectName("dangerButton");
-        removeBtn->setFixedSize(30, 30);
-        connect(removeBtn, &QPushButton::clicked, this, [this, i]() {
-            m_controller->removeItem(i);
-        });
-        m_cartTable->setCellWidget(i, 4, removeBtn);
-    }
+    auto* scCtrlP = new QShortcut(QKeySequence("Ctrl+P"), this);
+    connect(scCtrlP, &QShortcut::activated, this, [this]() { m_actionPanel->printRequested(); });
+    
+    auto* scEsc = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(scEsc, &QShortcut::activated, this, [this]() { m_actionPanel->cancelBillRequested(); });
+    
+    auto* scF10 = new QShortcut(QKeySequence(Qt::Key_F10), this);
+    connect(scF10, &QShortcut::activated, this, [this]() {
+        m_actionPanel->generateInvoiceRequested(Invoice::PaymentMode::Cash);
+    });
 }
 
-void BillingPage::refreshTotals() {
-    Invoice inv = m_controller->currentInvoice();
-    m_subtotalLabel->setText(QString("₹%1").arg(inv.subtotal, 0, 'f', 2));
-    m_discountLabel->setText(QString("₹%1").arg(inv.discountAmt + inv.couponDiscount, 0, 'f', 2));
-    m_taxLabel->setText(QString("₹%1").arg(inv.cgstAmt + inv.sgstAmt, 0, 'f', 2));
-    m_totalLabel->setText(QString("₹%1").arg(inv.grandTotal, 0, 'f', 2));
-}
-
-void BillingPage::reloadProductGrid() {
-    // Clear existing layout
-    QLayoutItem* item;
-    while ((item = m_productGrid->takeAt(0)) != nullptr) {
-        if (item->widget()) {
-            item->widget()->deleteLater();
-        }
-        delete item;
-    }
-
+void BillingPage::loadProducts(const QString& queryStr, const QString& category) {
     auto& db = DatabaseManager::instance();
     if (!db.isConnected()) return;
 
-    QString filter = m_productSearchInput->text().trimmed();
-    QSqlQuery query;
+    QString sql = "SELECT p.id, p.barcode, p.name, c.name as category, p.selling_price as price, p.stock_quantity as stock "
+                  "FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.is_active = 1";
+                  
     QVariantList params;
-    QString queryStr = "SELECT p.id, p.name, p.selling_price FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.is_active = 1";
-    
-    if (m_selectedCategoryFilter != "All") {
-        queryStr += " AND c.name = ?";
-        params << m_selectedCategoryFilter;
+    if (category != "All Categories" && !category.isEmpty()) {
+        sql += " AND c.name = ?";
+        params << category;
     }
     
-    if (!filter.isEmpty()) {
-        queryStr += " AND (p.name LIKE ? OR p.barcode LIKE ?)";
-        params << "%" + filter + "%" << "%" + filter + "%";
-    }
-    queryStr += " LIMIT 8;";
-
-    query = db.prepare(queryStr);
-    for (const auto& p : params) {
-        query.addBindValue(p);
-    }
-    if (!query.exec()) {
-        return;
-    }
-
-    int idx = 0;
-    bool hasProducts = false;
-    while (query.next()) {
-        hasProducts = true;
-        int id = query.value(0).toInt();
-        QString name = query.value(1).toString();
-        double price = query.value(2).toDouble();
-
-        QPushButton* pBtn = new QPushButton(m_gridWidget);
-        pBtn->setText(QString("%1\n₹%2").arg(name).arg(price, 0, 'f', 2));
-        pBtn->setFixedSize(130, 100);
+    QString trimmedQuery = queryStr.trimmed();
+    if (!trimmedQuery.isEmpty()) {
+        // Split by whitespace to handle extra spaces and multi-word searches (e.g. "Marker Pen Black")
+        QStringList words = trimmedQuery.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
         
-        connect(pBtn, &QPushButton::clicked, this, [this, id]() {
-            m_controller->addProductToInvoice(id, 1.0);
-        });
-
-        m_productGrid->addWidget(pBtn, idx / 2, idx % 2);
-        idx++;
-    }
-
-    if (!hasProducts) {
-        QLabel* emptyLabel = new QLabel(filter.isEmpty() ? "No products in database.\nAdd them in Products screen." : "No products match search.", m_gridWidget);
-        emptyLabel->setAlignment(Qt::AlignCenter);
-        emptyLabel->setStyleSheet("color: #A9B1BC; font-size: 14px;");
-        m_productGrid->addWidget(emptyLabel, 0, 0, 1, 2);
-    }
-}
-
-void BillingPage::onCheckout() {
-    Invoice inv = m_controller->currentInvoice();
-    if (inv.items.empty()) {
-        QMessageBox::warning(this, "Checkout Failed", "Your shopping cart is empty.");
-        return;
-    }
-    
-    QString modeStr = m_paymentModeCombo->currentText().toLower();
-    Invoice::PaymentMode mode = Invoice::PaymentMode::Cash;
-    if (modeStr == "credit card") mode = Invoice::PaymentMode::Card;
-    else if (modeStr == "upi") mode = Invoice::PaymentMode::UPI;
-    else if (modeStr == "split payment") mode = Invoice::PaymentMode::Split;
-    
-    m_controller->finalizeInvoice(inv.grandTotal, mode);
-}
-
-void BillingPage::onPrintInvoice() {
-    Invoice inv = m_controller->currentInvoice();
-    if (inv.invoiceNumber.isEmpty()) {
-        QMessageBox::warning(this, "Print Error", "Please finalize the transaction before printing.");
-        return;
-    }
-    QMessageBox::information(this, "Print Success", QString("Invoice %1 sent to default printer.").arg(inv.invoiceNumber));
-}
-
-void BillingPage::onEmailInvoice() {
-    Invoice inv = m_controller->currentInvoice();
-    if (inv.invoiceNumber.isEmpty()) {
-        QMessageBox::warning(this, "Email Error", "Please finalize the transaction before emailing.");
-        return;
-    }
-    QMessageBox::information(this, "Email Success", QString("Invoice %1 successfully emailed to customer.").arg(inv.invoiceNumber));
-}
-
-void BillingPage::onCategoryFilter(const QString& category) {
-    m_selectedCategoryFilter = category;
-    reloadProductGrid();
-}
-
-void BillingPage::onAddOnClicked(const QString& productName, double price) {
-    auto& db = DatabaseManager::instance();
-    if (!db.isConnected()) return;
-    
-    auto res = db.executeScalar("SELECT id FROM products WHERE name = ? LIMIT 1;", { productName });
-    int productId = 0;
-    if (res && !res->isNull()) {
-        productId = res->toInt();
+        for (const QString& word : words) {
+            sql += " AND (p.name LIKE ? OR p.barcode LIKE ? OR p.sku LIKE ? OR c.name LIKE ?)";
+            QString param = "%" + word + "%";
+            params << param << param << param << param;
+        }
+        
+        // Order by exact name match first, then starts-with, then others
+        sql += " ORDER BY "
+               "CASE "
+               "  WHEN p.name LIKE ? THEN 1 "
+               "  WHEN p.name LIKE ? THEN 2 "
+               "  ELSE 3 "
+               "END ASC, p.name ASC ";
+               
+        params << trimmedQuery 
+               << trimmedQuery + "%";
     } else {
-        QString barcode = "addon_" + productName.toLower().trimmed().replace(" ", "_");
-        QString sku = "SKU_" + productName.toUpper().trimmed().replace(" ", "_");
-        db.executeNonQuery("INSERT INTO products (barcode, sku, name, cost_price, selling_price, stock_quantity) VALUES (?, ?, ?, ?, ?, ?);",
-                           { barcode, sku, productName, price * 0.5, price, 9999.0 });
-        
-        auto newRes = db.executeScalar("SELECT id FROM products WHERE name = ? LIMIT 1;", { productName });
-        if (newRes && !newRes->isNull()) {
-            productId = newRes->toInt();
+        sql += " ORDER BY p.name ASC ";
+    }
+    
+    sql += " LIMIT 20;";
+    
+    QSqlQuery query = db.prepare(sql);
+    for (const auto& p : params) query.addBindValue(p);
+    
+    QList<QVariantMap> products;
+    if (query.exec()) {
+        while (query.next()) {
+            QVariantMap map;
+            map["id"] = query.value(0);
+            map["barcode"] = query.value(1);
+            map["name"] = query.value(2);
+            map["category"] = query.value(3);
+            map["price"] = query.value(4);
+            map["stock"] = query.value(5);
+            products.append(map);
         }
     }
-    
-    if (productId > 0) {
-        m_controller->addProductToInvoice(productId, 1.0);
-    }
+    m_productPanel->updateProducts(products);
 }
 
 } // namespace RetailMS

@@ -1,5 +1,6 @@
 #include "BillingController.h"
 #include "../services/BillingService.h"
+#include "../services/CustomerService.h"
 #include "../exceptions/AppException.h"
 
 namespace RetailMS {
@@ -22,6 +23,26 @@ void BillingController::createNewInvoice() {
     emit invoiceUpdated(m_currentInvoice);
 }
 
+void BillingController::holdCurrentBill() {
+    if (!m_currentInvoice.items.empty()) {
+        m_heldInvoices.push_back(m_currentInvoice);
+        emit successMessage("Bill put on hold.");
+        createNewInvoice();
+    }
+}
+
+void BillingController::resumeBill(int index) {
+    if (index >= 0 && index < static_cast<int>(m_heldInvoices.size())) {
+        if (!m_currentInvoice.items.empty()) {
+            m_heldInvoices.push_back(m_currentInvoice);
+        }
+        m_currentInvoice = m_heldInvoices[index];
+        m_heldInvoices.erase(m_heldInvoices.begin() + index);
+        emit invoiceUpdated(m_currentInvoice);
+        emit successMessage("Bill resumed.");
+    }
+}
+
 void BillingController::addProductToInvoice(int productId, double qty) {
     try {
         m_billingService->addItem(m_currentInvoice, productId, qty);
@@ -32,7 +53,12 @@ void BillingController::addProductToInvoice(int productId, double qty) {
 }
 
 void BillingController::addProductByBarcode(const QString& barcode, double qty) {
-    emit errorOccurred("Add by barcode not fully wired in controller yet");
+    try {
+        m_billingService->addItemByBarcode(m_currentInvoice, barcode, qty);
+        emit invoiceUpdated(m_currentInvoice);
+    } catch (const std::exception& e) {
+        handleError("Add Product By Barcode", e);
+    }
 }
 
 void BillingController::updateItemQuantity(int index, double qty) {
@@ -74,7 +100,29 @@ void BillingController::removeCoupon() {
 
 void BillingController::setCustomer(int customerId) {
     m_currentInvoice.customerId = customerId;
+    if (customerId > 0) {
+        auto optC = m_billingService->customerService()->getCustomerById(customerId);
+        if (optC) {
+            m_currentInvoice.customerName = optC->name;
+            m_currentInvoice.customerPhone = optC->phone;
+        }
+    }
     emit invoiceUpdated(m_currentInvoice);
+}
+
+void BillingController::setCustomerPhone(const QString& phone) {
+    m_currentInvoice.customerPhone = phone;
+    // We do not clear customerId here, because it might be a valid walk-in/new logic flow where it is -1.
+    emit invoiceUpdated(m_currentInvoice);
+}
+
+void BillingController::redeemLoyaltyPoints(int points) {
+    try {
+        m_billingService->redeemLoyaltyPoints(m_currentInvoice, points);
+        emit invoiceUpdated(m_currentInvoice);
+    } catch (const std::exception& e) {
+        handleError("Redeem Loyalty Points", e);
+    }
 }
 
 void BillingController::finalizeInvoice(double amountPaid, Invoice::PaymentMode mode, const QString& ref) {
@@ -85,6 +133,10 @@ void BillingController::finalizeInvoice(double amountPaid, Invoice::PaymentMode 
     } catch (const std::exception& e) {
         handleError("Finalize Invoice", e);
     }
+}
+
+std::shared_ptr<CustomerService> BillingController::customerService() const {
+    return m_billingService->customerService();
 }
 
 } // namespace RetailMS

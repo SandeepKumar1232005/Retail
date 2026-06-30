@@ -31,6 +31,10 @@ private:
     DashboardPage* m_dashboardPage;
     class BillingPage* m_billingPage;
     class MyBillsPage* m_myBillsPage;
+    class InventoryPage* m_inventoryPage;
+    class SalesHistoryPage* m_salesHistoryPage;
+    class ReportsPage* m_reportsPage;
+    class CustomersPage* m_customersPage;
     QLabel* m_breadcrumbLabel;
     QLabel* m_dateTimeLabel;
     QLineEdit* m_searchBox;

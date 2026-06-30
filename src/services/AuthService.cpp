@@ -14,13 +14,13 @@ AuthService::AuthService(std::shared_ptr<UserRepository> userRepo)
 std::optional<User> AuthService::login(const QString& username, const QString& password) {
     auto users = m_userRepo->findWhere("username = ?", {username});
     if (users.empty()) {
-        LOG_WARN("Login failed: user not found", username);
+        LOG_WARN(QString("Login failed: user not found - %1").arg(username));
         return std::nullopt;
     }
     
     User user = users.front();
     if (!user.isActive) {
-        LOG_WARN("Login failed: user inactive", username);
+        LOG_WARN(QString("Login failed: user inactive - %1").arg(username));
         return std::nullopt;
     }
     
@@ -28,17 +28,17 @@ std::optional<User> AuthService::login(const QString& username, const QString& p
         user.lastLogin = QDateTime::currentDateTime();
         m_userRepo->update(user);
         SessionManager::instance().setCurrentUser(user);
-        LOG_INFO("User logged in successfully", username);
+        LOG_INFO(QString("User logged in successfully - %1").arg(username));
         return user;
     }
     
-    LOG_WARN("Login failed: incorrect password", username);
+    LOG_WARN(QString("Login failed: incorrect password - %1").arg(username));
     return std::nullopt;
 }
 
 void AuthService::logout() {
     if (SessionManager::instance().isLoggedIn()) {
-        LOG_INFO("User logged out", SessionManager::instance().currentUser().username);
+        LOG_INFO(QString("User logged out - %1").arg(SessionManager::instance().currentUser().username));
         SessionManager::instance().clear();
     }
 }

@@ -31,7 +31,6 @@ void SidebarWidget::setupUi() {
     if (isAdmin) {
         m_navButtons.append(createNavButton("Products", "📦", 2));
         m_navButtons.append(createNavButton("Inventory", "🏢", 3));
-        m_navButtons.append(createNavButton("Categories", "📁", 4));
         m_navButtons.append(createNavButton("Sales History", "📝", 5));
         m_navButtons.append(createNavButton("Reports", "📈", 6));
         m_navButtons.append(createNavButton("Staff Mgt", "👨‍💼", 7));
@@ -57,7 +56,7 @@ QString SidebarWidget::getPageName(int index) const {
     }
     // Static map
     QStringList pages = {
-        "Dashboard", "Billing", "Products", "Inventory", "Categories", 
+        "Dashboard", "Billing", "Products", "Inventory", 
         "Sales History", "Reports", "Staff Management", "Customers", 
         "My Bills", "Profile", "Access Denied"
     };

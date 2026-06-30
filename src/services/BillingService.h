@@ -26,18 +26,21 @@ public:
 
     Invoice createDraftInvoice();
     void    addItem(Invoice& inv, int productId, double qty);
+    void    addItemByBarcode(Invoice& inv, const QString& barcode, double qty);
     void    removeItem(Invoice& inv, int itemIndex);
     void    updateQuantity(Invoice& inv, int itemIndex, double qty);
     void    applyDiscount(Invoice& inv, double pct);
     bool    applyCoupon(Invoice& inv, const QString& code);
     void    removeCoupon(Invoice& inv);
     void    applyLoyaltyRedemption(Invoice& inv, const Customer& c, int points);
+    void    redeemLoyaltyPoints(Invoice& inv, int points);
     Invoice finaliseInvoice(Invoice& inv, double amountPaid, Invoice::PaymentMode mode, const QString& ref = {});
     bool    voidInvoice(int invoiceId, const QString& reason);
     Invoice processRefund(int invoiceId);
 
     QString generateInvoiceNumber() const;
     std::vector<Invoice> getInvoicesByDateRange(const QDate& from, const QDate& to) const;
+    std::shared_ptr<CustomerService> customerService() const { return m_customerService; }
 
 signals:
     void invoiceCreated(const Invoice& inv);

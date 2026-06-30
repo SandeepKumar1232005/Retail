@@ -9,10 +9,12 @@ namespace RetailMS {
 class Invoice : public BaseModel {
 public:
     enum class Status { Draft, Paid, Refunded, Voided };
-    enum class PaymentMode { Cash, UPI, Card, Split };
+    enum class PaymentMode { Cash, UPI, Card, Wallet, Split };
 
     QString  invoiceNumber;
     int      customerId{-1};
+    QString  customerPhone;
+    QString  customerName;
     int      userId{-1};
     std::vector<InvoiceItem> items;
 

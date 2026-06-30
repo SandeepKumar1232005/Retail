@@ -8,6 +8,8 @@
 #include "../utils/Logger.h"
 #include "../exceptions/AppException.h"
 #include <QDate>
+#include "../database/DatabaseManager.h"
+#include "../database/Transaction.h"
 
 namespace RetailMS {
 
@@ -68,8 +70,40 @@ void BillingService::addItem(Invoice& inv, int productId, double qty) {
         item.total += (item.cgstAmt + item.sgstAmt);
     }
 
-    inv.items.push_back(item);
+    bool found = false;
+    for (auto& existingItem : inv.items) {
+        if (existingItem.productId == p.id) {
+            existingItem.quantity += qty;
+            existingItem.total = p.effectivePrice(existingItem.quantity);
+            existingItem.discountAmt = (p.sellingPrice * existingItem.quantity) - existingItem.total;
+            
+            if (p.isGstInclusive) {
+                existingItem.taxableAmt = existingItem.total / (1.0 + p.gstRate / 100.0);
+                double tax = existingItem.total - existingItem.taxableAmt;
+                existingItem.cgstAmt = tax / 2.0;
+                existingItem.sgstAmt = tax / 2.0;
+            } else {
+                existingItem.taxableAmt = existingItem.total;
+                existingItem.cgstAmt = existingItem.taxableAmt * existingItem.cgstRate / 100.0;
+                existingItem.sgstAmt = existingItem.taxableAmt * existingItem.sgstRate / 100.0;
+                existingItem.total += (existingItem.cgstAmt + existingItem.sgstAmt);
+            }
+            found = true;
+            break;
+        }
+    }
+    
+    if (!found) {
+        inv.items.push_back(item);
+    }
+    
     inv.recalculate();
+}
+
+void BillingService::addItemByBarcode(Invoice& inv, const QString& barcode, double qty) {
+    auto optProduct = m_productService->getProductByBarcode(barcode);
+    if (!optProduct) throw AppException("Product with barcode not found");
+    addItem(inv, optProduct.value().id, qty);
 }
 
 void BillingService::removeItem(Invoice& inv, int itemIndex) {
@@ -118,6 +152,15 @@ void BillingService::applyLoyaltyRedemption(Invoice& inv, const Customer& c, int
     }
 }
 
+void BillingService::redeemLoyaltyPoints(Invoice& inv, int points) {
+    if (inv.customerId > 0) {
+        auto optC = m_customerService->getCustomerById(inv.customerId);
+        if (optC) {
+            applyLoyaltyRedemption(inv, optC.value(), points);
+        }
+    }
+}
+
 Invoice BillingService::finaliseInvoice(Invoice& inv, double amountPaid, Invoice::PaymentMode mode, const QString& ref) {
     inv.amountPaid = amountPaid;
     inv.paymentMode = mode;
@@ -125,17 +168,53 @@ Invoice BillingService::finaliseInvoice(Invoice& inv, double amountPaid, Invoice
     inv.status = Invoice::Status::Paid;
     inv.recalculate();
     
-    deductStock(inv);
+    Transaction tx(DatabaseManager::instance());
     
-    if (inv.customerId > 0) {
-        awardLoyaltyPoints(inv);
+    try {
+        deductStock(inv);
+        
+        // Auto-create or link customer
+        if (inv.customerId <= 0 && !inv.customerPhone.isEmpty()) {
+            auto existing = m_customerService->getCustomerByPhone(inv.customerPhone);
+            if (existing) {
+                inv.customerId = existing->id;
+                inv.customerName = existing->name;
+            } else {
+                Customer newCus;
+                newCus.phone = inv.customerPhone;
+                newCus.name = "Customer";
+                newCus.tier = "regular";
+                newCus.loyaltyPoints = 0;
+                newCus.totalSpent = 0.0;
+                int newId = m_customerService->saveCustomer(newCus);
+                if (newId > 0) {
+                    inv.customerId = newId;
+                    inv.customerName = newCus.name;
+                }
+            }
+        } else if (inv.customerId > 0 && inv.customerPhone.isEmpty()) {
+            auto optC = m_customerService->getCustomerById(inv.customerId);
+            if (optC) {
+                inv.customerPhone = optC->phone;
+                inv.customerName = optC->name;
+            }
+        }
+
+        if (inv.customerId > 0) {
+            awardLoyaltyPoints(inv);
+        }
+        
+        if (!inv.couponCode.isEmpty()) {
+            m_couponService->recordCouponUsage(inv.couponCode);
+        }
+        
+        inv.id = m_invoiceRepo->save(inv);
+        
+        tx.commit();
+    } catch (...) {
+        tx.rollback();
+        throw;
     }
-    
-    if (!inv.couponCode.isEmpty()) {
-        m_couponService->recordCouponUsage(inv.couponCode);
-    }
-    
-    inv.id = m_invoiceRepo->save(inv);
 
     emit invoiceCreated(inv);
     return inv;
@@ -221,7 +300,7 @@ void BillingService::awardLoyaltyPoints(const Invoice& inv) {
 }
 
 void BillingService::logActivity(const QString& action, const QJsonObject& details) {
-    LOG_INFO(action, "BillingService");
+    LOG_INFO(QString("BillingService: %1").arg(action));
 }
 
 } // namespace RetailMS

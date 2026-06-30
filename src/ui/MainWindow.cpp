@@ -4,6 +4,10 @@
 #include "BillingPage.h"
 #include "ProductPage.h"
 #include "MyBillsPage.h"
+#include "InventoryPage.h"
+#include "SalesHistoryPage.h"
+#include "ReportsPage.h"
+#include "CustomersPage.h"
 #include "../controllers/BillingController.h"
 #include "../controllers/ProductController.h"
 #include "../services/SessionManager.h"
@@ -75,12 +79,21 @@ void MainWindow::setupUi() {
         m_contentArea->addWidget(label);
     };
 
-    addPage("Inventory Page"); // 3
+    m_inventoryPage = new InventoryPage(m_billingController, m_productController, m_contentArea);
+    m_contentArea->addWidget(m_inventoryPage); // 3
+
     addPage("Categories Page"); // 4
-    addPage("Sales History Page"); // 5
-    addPage("Reports Page"); // 6
+
+    m_salesHistoryPage = new SalesHistoryPage(m_billingController, m_contentArea);
+    m_contentArea->addWidget(m_salesHistoryPage); // 5
+
+    m_reportsPage = new ReportsPage(m_billingController, m_contentArea);
+    m_contentArea->addWidget(m_reportsPage); // 6
+
     addPage("Staff Management Page"); // 7
-    addPage("Customers Page"); // 8
+    
+    m_customersPage = new CustomersPage(m_billingController->customerService(), m_billingController, m_contentArea);
+    m_contentArea->addWidget(m_customersPage); // 8
     
     // My Bills Page (9)
     m_myBillsPage = new MyBillsPage(m_billingController, m_contentArea);
@@ -163,7 +176,9 @@ void MainWindow::setupConnections() {
 
     connect(m_billingController.get(), &BillingController::checkoutComplete, m_dashboardPage, &DashboardPage::refreshData);
     connect(m_productController.get(), &ProductController::productListChanged, m_dashboardPage, &DashboardPage::refreshData);
-    connect(m_productController.get(), &ProductController::productListChanged, m_billingPage, &BillingPage::reloadProductGrid);
+    connect(m_productController.get(), &ProductController::productListChanged, m_billingPage, [this]() {
+        m_billingPage->loadProducts();
+    });
 }
 
 } // namespace RetailMS

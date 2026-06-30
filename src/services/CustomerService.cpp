@@ -10,9 +10,19 @@ std::optional<Customer> CustomerService::getCustomerById(int id) const {
     return m_repo->findById(id);
 }
 
+std::optional<Customer> CustomerService::getCustomerByPhone(const QString& phone) const {
+    auto results = m_repo->findWhere("phone = ?", {phone});
+    if (!results.empty()) return results.front();
+    return std::nullopt;
+}
+
 std::vector<Customer> CustomerService::searchCustomers(const QString& query) const {
     return m_repo->findWhere("name LIKE ? OR phone LIKE ?", 
                              {"%" + query + "%", "%" + query + "%"});
+}
+
+std::vector<Customer> CustomerService::getAllCustomers() const {
+    return m_repo->findAll();
 }
 
 int CustomerService::saveCustomer(const Customer& customer) {
@@ -28,20 +38,33 @@ bool CustomerService::deleteCustomer(int id) {
 }
 
 int CustomerService::calculatePointsEarned(double grandTotal) const {
-    // Basic settings logic - ideally fetched from SettingsManager
-    double pointsPerRupee = 0.1; 
-    return static_cast<int>(grandTotal * pointsPerRupee);
+    // ₹100 spent = 1 Loyalty Point (configurable)
+    double pointsPerHundred = 1.0;
+    return static_cast<int>(grandTotal / 100.0 * pointsPerHundred);
 }
 
 double CustomerService::pointsToRupees(int points) const {
-    double redemptionRate = 0.1;
-    return points * redemptionRate;
+    // Tiered redemption: 100 pts = ₹50, 250 pts = ₹150, 500 pts = ₹400
+    // For partial/exact redemptions, use the best applicable rate
+    if (points >= 500) return (points / 500) * 400.0 + getRedemptionDiscount(points % 500);
+    if (points >= 250) return (points / 250) * 150.0 + getRedemptionDiscount(points % 250);
+    if (points >= 100) return (points / 100) * 50.0;
+    return 0.0;
+}
+
+double CustomerService::getRedemptionDiscount(int points) const {
+    if (points >= 500) return 400.0;
+    if (points >= 250) return 150.0;
+    if (points >= 100) return 50.0;
+    return 0.0;
 }
 
 void CustomerService::updateTier(Customer& c) const {
-    if      (c.loyaltyPoints >= 20000) c.tier = "platinum";
-    else if (c.loyaltyPoints >= 5000)  c.tier = "gold";
-    else                               c.tier = "silver";
+    // Tier based on lifetime spending (totalSpent)
+    if      (c.totalSpent >= 50000.0) c.tier = "platinum";
+    else if (c.totalSpent >= 25000.0) c.tier = "gold";
+    else if (c.totalSpent >= 10000.0) c.tier = "silver";
+    else                              c.tier = "regular";
 }
 
 }

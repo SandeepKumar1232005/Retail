@@ -38,7 +38,7 @@ void DashboardPage::setupAdminUi() {
     contentLayout->setContentsMargins(40, 40, 40, 40);
     contentLayout->setSpacing(24);
     
-    // Top Section: Stat Cards
+    // Top Section: Row 1 Stat Cards
     QHBoxLayout* statsLayout = new QHBoxLayout();
     statsLayout->setSpacing(20);
     
@@ -53,6 +53,22 @@ void DashboardPage::setupAdminUi() {
     statsLayout->addWidget(m_inventoryValueCard);
     
     contentLayout->addLayout(statsLayout);
+
+    // Row 2 Stat Cards
+    QHBoxLayout* statsLayout2 = new QHBoxLayout();
+    statsLayout2->setSpacing(20);
+
+    m_overallSalesCard = new StatCardWidget("Overall Revenue", "₹0.00", "", this);
+    m_totalBillsCard = new StatCardWidget("Total Bills", "0", "", this);
+    m_avgBillValueCard = new StatCardWidget("Average Bill Value", "₹0.00", "", this);
+    m_outOfStockCard = new StatCardWidget("Out of Stock Items", "0", "", this);
+
+    statsLayout2->addWidget(m_overallSalesCard);
+    statsLayout2->addWidget(m_totalBillsCard);
+    statsLayout2->addWidget(m_avgBillValueCard);
+    statsLayout2->addWidget(m_outOfStockCard);
+
+    contentLayout->addLayout(statsLayout2);
     
     // Middle Section: Charts and AI Panel
     QHBoxLayout* middleLayout = new QHBoxLayout();
@@ -87,6 +103,57 @@ void DashboardPage::setupAdminUi() {
     bottomLayout->addWidget(lowStockPanel, 1);
     
     contentLayout->addLayout(bottomLayout);
+
+    // Extra Statistics Row (Top Products, Category-wise Sales, Payment Stats & Stock Levels)
+    QHBoxLayout* statsLayout3 = new QHBoxLayout();
+    statsLayout3->setSpacing(20);
+
+    // Top Selling Products
+    QWidget* topProductsPanel = new QWidget(this);
+    topProductsPanel->setObjectName("statCard");
+    QVBoxLayout* tpLayout = new QVBoxLayout(topProductsPanel);
+    tpLayout->setContentsMargins(20, 20, 20, 20);
+    QLabel* tpTitle = new QLabel("Top Selling Products", topProductsPanel);
+    tpTitle->setStyleSheet("font-size: 16px; font-weight: bold; color: #FFFFFF;");
+    tpLayout->addWidget(tpTitle);
+    QLabel* tpListLabel = new QLabel("No sales yet.", topProductsPanel);
+    tpListLabel->setObjectName("topProductsListLabel");
+    tpListLabel->setStyleSheet("color: #A9B1BC; font-size: 14px;");
+    tpLayout->addWidget(tpListLabel);
+    tpLayout->addStretch();
+    statsLayout3->addWidget(topProductsPanel, 1);
+
+    // Category-wise Sales
+    QWidget* catSalesPanel = new QWidget(this);
+    catSalesPanel->setObjectName("statCard");
+    QVBoxLayout* csLayout = new QVBoxLayout(catSalesPanel);
+    csLayout->setContentsMargins(20, 20, 20, 20);
+    QLabel* csTitle = new QLabel("Category Sales", catSalesPanel);
+    csTitle->setStyleSheet("font-size: 16px; font-weight: bold; color: #FFFFFF;");
+    csLayout->addWidget(csTitle);
+    QLabel* csListLabel = new QLabel("No sales yet.", catSalesPanel);
+    csListLabel->setObjectName("catSalesListLabel");
+    csListLabel->setStyleSheet("color: #A9B1BC; font-size: 14px;");
+    csLayout->addWidget(csListLabel);
+    csLayout->addStretch();
+    statsLayout3->addWidget(catSalesPanel, 1);
+
+    // Payment Stats & Stock Level
+    QWidget* paymentPanel = new QWidget(this);
+    paymentPanel->setObjectName("statCard");
+    QVBoxLayout* pmLayout = new QVBoxLayout(paymentPanel);
+    pmLayout->setContentsMargins(20, 20, 20, 20);
+    QLabel* pmTitle = new QLabel("Payment Methods & Stock", paymentPanel);
+    pmTitle->setStyleSheet("font-size: 16px; font-weight: bold; color: #FFFFFF;");
+    pmLayout->addWidget(pmTitle);
+    QLabel* pmListLabel = new QLabel("-", paymentPanel);
+    pmListLabel->setObjectName("paymentListLabel");
+    pmListLabel->setStyleSheet("color: #A9B1BC; font-size: 14px;");
+    pmLayout->addWidget(pmListLabel);
+    pmLayout->addStretch();
+    statsLayout3->addWidget(paymentPanel, 1);
+
+    contentLayout->addLayout(statsLayout3);
     
     scrollArea->setWidget(scrollContent);
     mainLayout->addWidget(scrollArea);
@@ -251,12 +318,12 @@ void DashboardPage::refreshAdminData() {
     if (!db.isConnected()) return;
 
     // 1. Today's Revenue
-    auto revRes = db.executeScalar("SELECT SUM(grand_total) FROM invoices WHERE DATE(invoice_date) = DATE('now');");
+    auto revRes = db.executeScalar("SELECT SUM(grand_total) FROM invoices WHERE DATE(invoice_date) = DATE('now') AND status = 'paid';");
     double revenue = (revRes && !revRes->isNull()) ? revRes->toDouble() : 0.0;
     m_todayRevenueCard->setValue(QString("₹%1").arg(revenue, 0, 'f', 2));
 
     // 2. Today's Orders
-    auto ordRes = db.executeScalar("SELECT COUNT(*) FROM invoices WHERE DATE(invoice_date) = DATE('now');");
+    auto ordRes = db.executeScalar("SELECT COUNT(*) FROM invoices WHERE DATE(invoice_date) = DATE('now') AND status = 'paid';");
     int orders = (ordRes && !ordRes->isNull()) ? ordRes->toInt() : 0;
     m_totalOrdersCard->setValue(QString::number(orders));
 
@@ -266,12 +333,32 @@ void DashboardPage::refreshAdminData() {
     m_customersCard->setValue(QString::number(customers));
 
     // 4. Inventory Value
-    auto invRes = db.executeScalar("SELECT SUM(stock_quantity * cost_price) FROM products;");
+    auto invRes = db.executeScalar("SELECT SUM(stock_quantity * cost_price) FROM products WHERE is_active = 1;");
     double invValue = (invRes && !invRes->isNull()) ? invRes->toDouble() : 0.0;
     m_inventoryValueCard->setValue(QString("₹%1").arg(invValue, 0, 'f', 2));
 
-    // 5. Low Stock Alerts Panel & Low Stock Card calculation
-    auto lowStockRes = db.executeScalar("SELECT COUNT(*) FROM products WHERE stock_quantity <= min_stock;");
+    // 5. Overall Revenue
+    auto overallRev = db.executeScalar("SELECT SUM(grand_total) FROM invoices WHERE status = 'paid';");
+    double oRev = (overallRev && !overallRev->isNull()) ? overallRev->toDouble() : 0.0;
+    if (m_overallSalesCard) m_overallSalesCard->setValue(QString("₹%1").arg(oRev, 0, 'f', 2));
+
+    // 6. Total Bills
+    auto totalBills = db.executeScalar("SELECT COUNT(*) FROM invoices WHERE status = 'paid';");
+    int tBills = (totalBills && !totalBills->isNull()) ? totalBills->toInt() : 0;
+    if (m_totalBillsCard) m_totalBillsCard->setValue(QString::number(tBills));
+
+    // 7. Average Bill Value
+    auto avgBill = db.executeScalar("SELECT AVG(grand_total) FROM invoices WHERE status = 'paid';");
+    double aBill = (avgBill && !avgBill->isNull()) ? avgBill->toDouble() : 0.0;
+    if (m_avgBillValueCard) m_avgBillValueCard->setValue(QString("₹%1").arg(aBill, 0, 'f', 2));
+
+    // 8. Out of Stock Items
+    auto outOfStock = db.executeScalar("SELECT COUNT(*) FROM products WHERE stock_quantity <= 0 AND is_active = 1;");
+    int oosCount = (outOfStock && !outOfStock->isNull()) ? outOfStock->toInt() : 0;
+    if (m_outOfStockCard) m_outOfStockCard->setValue(QString::number(oosCount));
+
+    // 9. Low Stock Alerts Panel & Low Stock Count
+    auto lowStockRes = db.executeScalar("SELECT COUNT(*) FROM products WHERE stock_quantity <= min_stock AND stock_quantity > 0 AND is_active = 1;");
     int lowStockCount = (lowStockRes && !lowStockRes->isNull()) ? lowStockRes->toInt() : 0;
     
     QLabel* lsListLabel = findChild<QLabel*>("lowStockListLabel");
@@ -280,45 +367,123 @@ void DashboardPage::refreshAdminData() {
             lsListLabel->setText("No low stock items. All inventory healthy!");
             lsListLabel->setStyleSheet("color: #22C55E; font-size: 14px;");
         } else {
-            // Get up to 3 low stock product names
-            QSqlQuery query = db.execute("SELECT name, stock_quantity FROM products WHERE stock_quantity <= min_stock LIMIT 3;");
+            QSqlQuery query = db.execute("SELECT name, stock_quantity FROM products WHERE stock_quantity <= min_stock AND stock_quantity > 0 AND is_active = 1 LIMIT 3;");
             QStringList lowStockItems;
             while (query.next()) {
                 lowStockItems << QString("- %1 (Qty: %2)").arg(query.value(0).toString()).arg(query.value(1).toDouble());
             }
             lsListLabel->setText(QString("Low Stock Items (%1 total):\n%2").arg(lowStockCount).arg(lowStockItems.join("\n")));
-            lsListLabel->setStyleSheet("color: #EF4444; font-size: 14px;");
+            lsListLabel->setStyleSheet("color: #F59E0B; font-size: 14px;");
         }
     }
 
-    // 6. Recent Transactions Panel
+    // 10. Recent Transactions Panel
     QTextEdit* txsArea = findChild<QTextEdit*>("recentTxsArea");
     if (txsArea) {
         txsArea->clear();
-        QSqlQuery query = db.execute("SELECT invoice_number, grand_total, payment_mode, invoice_date FROM invoices ORDER BY invoice_date DESC LIMIT 5;");
+        QSqlQuery query = db.execute("SELECT i.invoice_number, i.customer_id, i.customer_name, u.full_name, i.payment_mode, i.grand_total, i.invoice_date "
+                                     "FROM invoices i "
+                                     "LEFT JOIN users u ON i.user_id = u.id "
+                                     "ORDER BY i.invoice_date DESC LIMIT 5;");
         bool hasData = false;
         while (query.next()) {
             hasData = true;
-            QString invNum = query.value(0).toString();
-            double total = query.value(1).toDouble();
-            QString mode = query.value(2).toString().toUpper();
-            QString date = query.value(3).toString();
-            txsArea->append(QString("<b>%1</b> | ₹%2 | %3 | %4").arg(invNum).arg(total, 0, 'f', 2).arg(mode).arg(date));
+            QString invNum = query.value("invoice_number").toString();
+            int custId = query.value("customer_id").toInt();
+            QString cust = query.value("customer_name").toString();
+            QString cashier = query.value("full_name").toString();
+            QString mode = query.value("payment_mode").toString().toUpper();
+            double total = query.value("grand_total").toDouble();
+            QString date = query.value("invoice_date").toDateTime().toString("yyyy-MM-dd HH:mm");
+
+            if (cust.isEmpty()) cust = "-";
+            if (custId > 0) {
+                cust += QString(" (CUS-%1)").arg(custId, 6, 10, QChar('0'));
+            }
+            txsArea->append(QString("<b>%1</b> | Cust: %2 | Cashier: %3 | %4 | <b>₹%5</b> | %6")
+                            .arg(invNum).arg(cust).arg(cashier).arg(mode).arg(total, 0, 'f', 2).arg(date));
         }
         if (!hasData) {
             txsArea->setText("No sales transactions recorded yet.");
         }
     }
 
-    // 7. Update Charts (Revenue Trend)
+    // 11. Top Selling Products
+    QLabel* tpListLabel = findChild<QLabel*>("topProductsListLabel");
+    if (tpListLabel) {
+        QSqlQuery query = db.execute("SELECT product_name, SUM(quantity) as total_qty "
+                                     "FROM invoice_items ii "
+                                     "JOIN invoices i ON ii.invoice_id = i.id "
+                                     "WHERE i.status = 'paid' "
+                                     "GROUP BY product_id, product_name "
+                                     "ORDER BY total_qty DESC LIMIT 5;");
+        QStringList items;
+        while (query.next()) {
+            items << QString("- %1 (Qty: %2)").arg(query.value(0).toString()).arg(query.value(1).toDouble());
+        }
+        if (items.isEmpty()) {
+            tpListLabel->setText("No sales recorded yet.");
+        } else {
+            tpListLabel->setText(items.join("\n"));
+        }
+    }
+
+    // 12. Category Sales
+    QLabel* csListLabel = findChild<QLabel*>("catSalesListLabel");
+    if (csListLabel) {
+        QSqlQuery query = db.execute("SELECT c.name, SUM(ii.total) as total_sales "
+                                     "FROM invoice_items ii "
+                                     "JOIN products p ON ii.product_id = p.id "
+                                     "JOIN categories c ON p.category_id = c.id "
+                                     "JOIN invoices i ON ii.invoice_id = i.id "
+                                     "WHERE i.status = 'paid' "
+                                     "GROUP BY c.id, c.name "
+                                     "ORDER BY total_sales DESC LIMIT 5;");
+        QStringList items;
+        while (query.next()) {
+            items << QString("- %1: ₹%2").arg(query.value(0).toString()).arg(query.value(1).toDouble(), 0, 'f', 2);
+        }
+        if (items.isEmpty()) {
+            csListLabel->setText("No sales recorded yet.");
+        } else {
+            csListLabel->setText(items.join("\n"));
+        }
+    }
+
+    // 13. Payment Methods & Total Inventory Stock
+    QLabel* pmListLabel = findChild<QLabel*>("paymentListLabel");
+    if (pmListLabel) {
+        QSqlQuery query = db.execute("SELECT payment_mode, SUM(grand_total) as total_sales, COUNT(*) as count "
+                                     "FROM invoices "
+                                     "WHERE status = 'paid' "
+                                     "GROUP BY payment_mode;");
+        QStringList items;
+        while (query.next()) {
+            QString mode = query.value(0).toString().toUpper();
+            double sales = query.value(1).toDouble();
+            int count = query.value(2).toInt();
+            items << QString("<b>%1</b>: ₹%2 (%3 bills)").arg(mode).arg(sales, 0, 'f', 2).arg(count);
+        }
+
+        auto totalStockRes = db.executeScalar("SELECT SUM(stock_quantity) FROM products WHERE is_active = 1;");
+        double totalStock = (totalStockRes && !totalStockRes->isNull()) ? totalStockRes->toDouble() : 0.0;
+
+        QString stockInfo = QString("<b>Total Stock Qty</b>: %1 units").arg(totalStock);
+        if (items.isEmpty()) {
+            pmListLabel->setText(stockInfo + "\n\nNo payments recorded yet.");
+        } else {
+            pmListLabel->setText(stockInfo + "\n\n" + items.join("\n"));
+        }
+    }
+
+    // 14. Update Charts (Revenue Trend)
     m_chartSeries->clear();
-    QSqlQuery chartQuery = db.execute("SELECT DATE(invoice_date) as d, SUM(grand_total) FROM invoices GROUP BY d ORDER BY d DESC LIMIT 7;");
+    QSqlQuery chartQuery = db.execute("SELECT DATE(invoice_date) as d, SUM(grand_total) FROM invoices WHERE status = 'paid' GROUP BY d ORDER BY d DESC LIMIT 7;");
     
     QList<QPointF> points;
     double maxVal = 1000.0; // minimum default Y range
     int idx = 0;
     
-    // We get them in desc order, store them and reverse them for correct timeline sequence
     struct ChartData {
         QString date;
         double value;
@@ -337,7 +502,6 @@ void DashboardPage::refreshAdminData() {
     }
     
     if (points.isEmpty()) {
-        // Flat line when empty
         m_chartSeries->append(0, 0);
         m_chartSeries->append(6, 0);
         m_axisX->setRange(0, 6);
@@ -347,7 +511,7 @@ void DashboardPage::refreshAdminData() {
             m_chartSeries->append(p);
         }
         m_axisX->setRange(0, qMax(6, idx - 1));
-        m_axisY->setRange(0, maxVal * 1.15); // Add 15% padding
+        m_axisY->setRange(0, maxVal * 1.15);
     }
 }
 
