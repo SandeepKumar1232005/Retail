@@ -3,6 +3,7 @@
 #include "DashboardPage.h"
 #include "BillingPage.h"
 #include "ProductPage.h"
+#include "MyBillsPage.h"
 #include "../controllers/BillingController.h"
 #include "../controllers/ProductController.h"
 #include "../services/SessionManager.h"
@@ -80,15 +81,18 @@ void MainWindow::setupUi() {
     addPage("Reports Page"); // 6
     addPage("Staff Management Page"); // 7
     addPage("Customers Page"); // 8
-    addPage("Settings Page"); // 9
-    addPage("My Bills Page"); // 10
-    addPage("Profile Page"); // 11
     
-    // Access Denied Page (12)
+    // My Bills Page (9)
+    m_myBillsPage = new MyBillsPage(m_billingController, m_contentArea);
+    m_contentArea->addWidget(m_myBillsPage);
+    
+    addPage("Profile Page"); // 10
+    
+    // Access Denied Page (11)
     QLabel* accessDenied = new QLabel("403 - Access Denied", m_contentArea);
     accessDenied->setAlignment(Qt::AlignCenter);
     accessDenied->setStyleSheet("font-size: 32px; color: #EF4444; font-weight: bold;");
-    m_contentArea->addWidget(accessDenied); // 12
+    m_contentArea->addWidget(accessDenied); // 11
 }
 
 void MainWindow::setupTopNavBar(QWidget* parent, QVBoxLayout* contentLayout) {
@@ -147,9 +151,9 @@ void MainWindow::setupConnections() {
         
         // RBAC routing
         if (!isAdmin) {
-            // Staff allowed: 0 (Dashboard), 1 (Billing), 2 (Products), 10 (My Bills), 11 (Profile)
-            if (index != 0 && index != 1 && index != 2 && index != 10 && index != 11) {
-                index = 12; // Access Denied
+            // Staff allowed: 0 (Dashboard), 1 (Billing), 2 (Products), 9 (My Bills), 10 (Profile)
+            if (index != 0 && index != 1 && index != 2 && index != 9 && index != 10) {
+                index = 11; // Access Denied
             }
         }
         

@@ -13,6 +13,7 @@ public:
     explicit BillingController(std::shared_ptr<BillingService> billingService, QObject* parent = nullptr);
 
     Invoice currentInvoice() const;
+    std::vector<Invoice> getInvoices(const QDate& from, const QDate& to) const;
     
 public slots:
     void createNewInvoice();

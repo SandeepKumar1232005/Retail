@@ -36,11 +36,10 @@ void SidebarWidget::setupUi() {
         m_navButtons.append(createNavButton("Reports", "📈", 6));
         m_navButtons.append(createNavButton("Staff Mgt", "👨‍💼", 7));
         m_navButtons.append(createNavButton("Customers", "👥", 8));
-        m_navButtons.append(createNavButton("Settings", "⚙️", 9));
     } else {
-        m_navButtons.append(createNavButton("My Bills", "📝", 10));
+        m_navButtons.append(createNavButton("My Bills", "📝", 9));
         m_navButtons.append(createNavButton("Products", "📦", 2));
-        m_navButtons.append(createNavButton("Profile", "👤", 11));
+        m_navButtons.append(createNavButton("Profile", "👤", 10));
     }
 
     m_layout->addStretch();
@@ -60,7 +59,7 @@ QString SidebarWidget::getPageName(int index) const {
     QStringList pages = {
         "Dashboard", "Billing", "Products", "Inventory", "Categories", 
         "Sales History", "Reports", "Staff Management", "Customers", 
-        "Settings", "My Bills", "Profile", "Access Denied"
+        "My Bills", "Profile", "Access Denied"
     };
     if (index >= 0 && index < pages.size()) return pages[index];
     return "Unknown Page";

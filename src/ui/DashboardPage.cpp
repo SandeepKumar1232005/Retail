@@ -140,6 +140,7 @@ QWidget* DashboardPage::createChartsSection() {
     QPen pen(QColor("#4CAF50"));
     pen.setWidth(3);
     m_chartSeries->setPen(pen);
+    m_chartSeries->setPointsVisible(true); // Ensure single data points are visible
     
     m_axisX = new QValueAxis();
     m_axisX->setLabelsColor(QColor("#A9B1BC"));
@@ -345,7 +346,7 @@ void DashboardPage::refreshAdminData() {
         for (const auto& p : points) {
             m_chartSeries->append(p);
         }
-        m_axisX->setRange(0, qMax(1, idx - 1));
+        m_axisX->setRange(0, qMax(6, idx - 1));
         m_axisY->setRange(0, maxVal * 1.15); // Add 15% padding
     }
 }

@@ -13,6 +13,10 @@ Invoice BillingController::currentInvoice() const {
     return m_currentInvoice;
 }
 
+std::vector<Invoice> BillingController::getInvoices(const QDate& from, const QDate& to) const {
+    return m_billingService->getInvoicesByDateRange(from, to);
+}
+
 void BillingController::createNewInvoice() {
     m_currentInvoice = m_billingService->createDraftInvoice();
     emit invoiceUpdated(m_currentInvoice);

@@ -30,6 +30,7 @@ private:
     QStackedWidget* m_contentArea;
     DashboardPage* m_dashboardPage;
     class BillingPage* m_billingPage;
+    class MyBillsPage* m_myBillsPage;
     QLabel* m_breadcrumbLabel;
     QLabel* m_dateTimeLabel;
     QLineEdit* m_searchBox;

@@ -187,7 +187,7 @@ QString BillingService::generateInvoiceNumber() const {
 std::vector<Invoice> BillingService::getInvoicesByDateRange(const QDate& from, const QDate& to) const {
     if (SessionManager::instance().isLoggedIn() && !SessionManager::instance().currentUser().isAdmin()) {
         // Staff can only see their own invoices
-        return m_invoiceRepo->findWhere("date(invoice_date) >= ? AND date(invoice_date) <= ? AND cashier_id = ?", 
+        return m_invoiceRepo->findWhere("date(invoice_date) >= ? AND date(invoice_date) <= ? AND user_id = ?", 
                                         {from.toString(Qt::ISODate), to.toString(Qt::ISODate), SessionManager::instance().currentUser().id});
     }
     return m_invoiceRepo->findWhere("date(invoice_date) >= ? AND date(invoice_date) <= ?", 
