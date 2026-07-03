@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QHeaderView>
+#include <QSizePolicy>
 #include <QSqlQuery>
 #include <QDialog>
 #include <QFormLayout>
@@ -148,7 +149,8 @@ void CustomersPage::setupUi() {
     m_historyTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_historyTable->verticalHeader()->setVisible(false);
     m_historyTable->setStyleSheet("QTableWidget { background-color: #1E2025; border: 1px solid #2A2D35; border-radius: 8px; }");
-    m_historyTable->setFixedHeight(220);
+    m_historyTable->setMinimumHeight(150);
+    m_historyTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     histLayout->addWidget(m_historyTable);
     listsLayout->addWidget(histContainer, 3);
 
@@ -167,12 +169,12 @@ void CustomersPage::setupUi() {
     m_favoritesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_favoritesTable->verticalHeader()->setVisible(false);
     m_favoritesTable->setStyleSheet("QTableWidget { background-color: #1E2025; border: 1px solid #2A2D35; border-radius: 8px; }");
-    m_favoritesTable->setFixedHeight(220);
+    m_favoritesTable->setMinimumHeight(150);
+    m_favoritesTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     favLayout->addWidget(m_favoritesTable);
     listsLayout->addWidget(favContainer, 2);
 
-    rightLayout->addLayout(listsLayout);
-    rightLayout->addStretch();
+    rightLayout->addLayout(listsLayout, 1);
 
     mainLayout->addWidget(rightWidget, 5); // 50% width
 }

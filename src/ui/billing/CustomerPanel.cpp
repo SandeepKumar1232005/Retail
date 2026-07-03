@@ -138,8 +138,9 @@ void CustomerPanel::onPhoneTextChanged(const QString& text) {
             m_currentCustomerId = c.id;
             m_currentLoyaltyPoints = c.loyaltyPoints;
 
-            // Count orders from database
-            setCustomerDetails(c.name, c.phone, c.loyaltyPoints, c.tier, c.totalSpent, 0, "");
+            // Load actual orders and last visit from database
+            QString lastVisitStr = c.lastVisit.isValid() ? c.lastVisit.toString("dd MMM yyyy") : "-";
+            setCustomerDetails(c.name, c.phone, c.loyaltyPoints, c.tier, c.totalSpent, c.totalOrders, lastVisitStr);
 
             m_welcomeLabel->setText(QString("Welcome back, %1! %2 pts").arg(c.name).arg(c.loyaltyPoints));
             m_welcomeLabel->show();

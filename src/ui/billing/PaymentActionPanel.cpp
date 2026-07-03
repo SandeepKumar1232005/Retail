@@ -13,6 +13,7 @@ PaymentActionPanel::PaymentActionPanel(QWidget* parent) : QWidget(parent) {
 }
 
 void PaymentActionPanel::setupUi() {
+    this->setMinimumWidth(320);
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(15);
@@ -77,36 +78,58 @@ void PaymentActionPanel::setupUi() {
     m_paymentModeGroup = new QButtonGroup(this);
     
     QString btnStyle = 
-        "QPushButton { background-color: #2A2D35; color: #FFF; border: 2px solid transparent; border-radius: 6px; padding: 12px 5px; font-size: 13px; font-weight: bold; }"
-        "QPushButton:checked { border: 2px solid #4CAF50; background-color: #1a2a1a; color: #4CAF50; }";
+        "QPushButton { "
+        "  background-color: #2A2D35; "
+        "  border: 2px solid transparent; "
+        "  border-radius: 10px; " // Border radius: 10px
+        "}"
+        "QPushButton:checked { "
+        "  border: 2px solid #4CAF50; "
+        "  background-color: #1a2a1a; "
+        "}";
         
     QGridLayout* payGrid = new QGridLayout();
     payGrid->setSpacing(10);
     
-    QPushButton* btnCash = new QPushButton("💵 Cash", paymentCard);
-    btnCash->setCheckable(true);
+    auto createPayBtn = [this, btnStyle, paymentCard](const QString& iconStr, const QString& textStr, Invoice::PaymentMode mode) -> QPushButton* {
+        QPushButton* btn = new QPushButton(paymentCard);
+        btn->setCheckable(true);
+        btn->setStyleSheet(btnStyle);
+        btn->setCursor(Qt::PointingHandCursor);
+        btn->setMinimumHeight(56); // Minimum Height: 56 px
+        
+        QSizePolicy sp(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        btn->setSizePolicy(sp);
+        
+        QHBoxLayout* lay = new QHBoxLayout(btn);
+        lay->setContentsMargins(16, 10, 16, 10); // Padding: Left 16, Top 10, Right 16, Bottom 10
+        lay->setSpacing(8);
+        lay->setAlignment(Qt::AlignCenter);
+        
+        QLabel* iconLbl = new QLabel(iconStr, btn);
+        iconLbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        iconLbl->setStyleSheet("color: #FFF; font-size: 16px; background: transparent; padding: 0px; margin: 0px; border: none;");
+        
+        QLabel* textLbl = new QLabel(textStr, btn);
+        textLbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        // Font Size 14px, Font Weight Medium (500)
+        textLbl->setStyleSheet("color: #FFF; font-size: 14px; font-weight: 500; background: transparent; padding: 0px; margin: 0px; border: none;");
+        
+        lay->addWidget(iconLbl);
+        lay->addWidget(textLbl);
+        
+        m_paymentModeGroup->addButton(btn, static_cast<int>(mode));
+        return btn;
+    };
+    
+    QPushButton* btnCash = createPayBtn("💵", "Cash", Invoice::PaymentMode::Cash);
     btnCash->setChecked(true);
-    btnCash->setStyleSheet(btnStyle);
-    btnCash->setCursor(Qt::PointingHandCursor);
-    m_paymentModeGroup->addButton(btnCash, static_cast<int>(Invoice::PaymentMode::Cash));
     
-    QPushButton* btnCard = new QPushButton("💳 Card", paymentCard);
-    btnCard->setCheckable(true);
-    btnCard->setStyleSheet(btnStyle);
-    btnCard->setCursor(Qt::PointingHandCursor);
-    m_paymentModeGroup->addButton(btnCard, static_cast<int>(Invoice::PaymentMode::Card));
+    QPushButton* btnCard = createPayBtn("💳", "Card", Invoice::PaymentMode::Card);
     
-    QPushButton* btnUpi = new QPushButton("📱 UPI", paymentCard);
-    btnUpi->setCheckable(true);
-    btnUpi->setStyleSheet(btnStyle);
-    btnUpi->setCursor(Qt::PointingHandCursor);
-    m_paymentModeGroup->addButton(btnUpi, static_cast<int>(Invoice::PaymentMode::UPI));
+    QPushButton* btnUpi = createPayBtn("📱", "UPI", Invoice::PaymentMode::UPI);
     
-    QPushButton* btnWallet = new QPushButton("💼 Wallet", paymentCard);
-    btnWallet->setCheckable(true);
-    btnWallet->setStyleSheet(btnStyle);
-    btnWallet->setCursor(Qt::PointingHandCursor);
-    m_paymentModeGroup->addButton(btnWallet, static_cast<int>(Invoice::PaymentMode::Wallet));
+    QPushButton* btnWallet = createPayBtn("💼", "Wallet", Invoice::PaymentMode::Wallet);
     
     payGrid->addWidget(btnCash, 0, 0);
     payGrid->addWidget(btnCard, 0, 1);
@@ -116,8 +139,6 @@ void PaymentActionPanel::setupUi() {
     paymentLayout->addLayout(payGrid);
     
     mainLayout->addWidget(paymentCard);
-    
-    mainLayout->addStretch();
 
     // --- CARD 3: Actions ---
     QFrame* actionCard = new QFrame(this);
@@ -171,6 +192,7 @@ void PaymentActionPanel::setupUi() {
     actionLayout->addLayout(secActionsLayout);
     
     mainLayout->addWidget(actionCard);
+    mainLayout->addStretch();
     
     // Connections
     connect(m_generateBtn, &QPushButton::clicked, this, [this]() {

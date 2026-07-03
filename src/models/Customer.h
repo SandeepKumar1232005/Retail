@@ -16,9 +16,11 @@ public:
     QString gstNumber;
     int loyaltyPoints{0};
     double totalSpent{0.0};
+    int totalOrders{0};
     QString tier{"silver"};
     QDate dob;
     QDate anniversary;
+    QDate lastVisit;
     QString notes;
 
     QJsonObject toJson() const override;

@@ -2,6 +2,7 @@
 #include "../services/SessionManager.h"
 #include <QLabel>
 #include <QEvent>
+#include <QLayout>
 
 namespace RetailMS {
 
@@ -10,7 +11,7 @@ SidebarWidget::SidebarWidget(QWidget* parent) : QWidget(parent) {
 }
 
 void SidebarWidget::setupUi() {
-    this->setFixedWidth(260); // Expanded width by default
+    this->setFixedWidth(75); // Collapsed width by default
     this->setObjectName("sidebar");
 
     m_layout = new QVBoxLayout(this);
@@ -47,6 +48,24 @@ void SidebarWidget::setupUi() {
     m_animation = new QPropertyAnimation(this, "sidebarWidth");
     m_animation->setDuration(150);
     m_animation->setEasingCurve(QEasingCurve::InOutQuad);
+    
+    // Apply initial collapsed state styling
+    m_logoLabel->setText("R");
+    for (auto btn : m_navButtons) {
+        btn->setText(btn->property("iconText").toString());
+        btn->setStyleSheet("text-align: center; padding: 0px; padding-right: 4px;");
+    }
+
+    // Ensure the animation completes before processing new hover events
+    connect(m_animation, &QPropertyAnimation::finished, this, [this]() {
+        QPoint globalPos = QCursor::pos();
+        bool isInside = this->rect().contains(this->mapFromGlobal(globalPos));
+        if (m_isCollapsed && isInside) {
+            toggleCollapse(false);
+        } else if (!m_isCollapsed && !isInside) {
+            toggleCollapse(true);
+        }
+    });
 }
 
 QString SidebarWidget::getPageName(int index) const {
@@ -88,6 +107,8 @@ QPushButton* SidebarWidget::createNavButton(const QString& text, const QString& 
 
 void SidebarWidget::enterEvent(QEnterEvent* event) {
     QWidget::enterEvent(event);
+    if (m_animation->state() == QAbstractAnimation::Running) return;
+    
     if (m_isCollapsed) {
         toggleCollapse(false);
     }
@@ -95,26 +116,36 @@ void SidebarWidget::enterEvent(QEnterEvent* event) {
 
 void SidebarWidget::leaveEvent(QEvent* event) {
     QWidget::leaveEvent(event);
+    
+    // Check if the cursor is actually outside the widget geometry to prevent false leaves
+    QPoint globalPos = QCursor::pos();
+    if (this->rect().contains(this->mapFromGlobal(globalPos))) {
+        return;
+    }
+    
+    if (m_animation->state() == QAbstractAnimation::Running) return;
+    
     if (!m_isCollapsed) {
         toggleCollapse(true);
     }
 }
 
 void SidebarWidget::toggleCollapse(bool collapse) {
+    if (m_isCollapsed == collapse) return;
     m_isCollapsed = collapse;
     
     m_animation->stop();
     m_animation->setStartValue(this->width());
     
     if (collapse) {
-        m_animation->setEndValue(80); // Collapsed width
+        m_animation->setEndValue(75); // Collapsed width
         m_logoLabel->setText("R");
         for (auto btn : m_navButtons) {
             btn->setText(btn->property("iconText").toString());
-            btn->setStyleSheet("text-align: center; padding-left: 0;");
+            btn->setStyleSheet("text-align: center; padding: 0px; padding-right: 4px;");
         }
     } else {
-        m_animation->setEndValue(260); // Expanded width
+        m_animation->setEndValue(250); // Expanded width
         m_logoLabel->setText("RetailMS");
         for (auto btn : m_navButtons) {
             btn->setText(QString("%1    %2").arg(btn->property("iconText").toString(), btn->property("fullText").toString()));

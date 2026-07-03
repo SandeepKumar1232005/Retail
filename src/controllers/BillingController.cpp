@@ -112,7 +112,7 @@ void BillingController::setCustomer(int customerId) {
 
 void BillingController::setCustomerPhone(const QString& phone) {
     m_currentInvoice.customerPhone = phone;
-    // We do not clear customerId here, because it might be a valid walk-in/new logic flow where it is -1.
+    m_currentInvoice.customerId = -1; // Reset ID for new phone input to avoid assigning wrong customer
     emit invoiceUpdated(m_currentInvoice);
 }
 

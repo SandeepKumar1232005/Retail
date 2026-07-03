@@ -15,9 +15,11 @@ QJsonObject Customer::toJson() const {
     obj["gst_number"] = gstNumber;
     obj["loyalty_points"] = loyaltyPoints;
     obj["total_spent"] = totalSpent;
+    obj["total_orders"] = totalOrders;
     obj["tier"] = tier;
     if (dob.isValid()) obj["dob"] = dob.toString(Qt::ISODate);
     if (anniversary.isValid()) obj["anniversary"] = anniversary.toString(Qt::ISODate);
+    if (lastVisit.isValid()) obj["last_visit"] = lastVisit.toString(Qt::ISODate);
     obj["notes"] = notes;
     return obj;
 }
@@ -33,9 +35,11 @@ void Customer::fromJson(const QJsonObject& obj) {
     gstNumber = obj["gst_number"].toString();
     loyaltyPoints = obj["loyalty_points"].toInt();
     totalSpent = obj["total_spent"].toDouble();
+    totalOrders = obj["total_orders"].toInt();
     tier = obj["tier"].toString("silver");
     if (obj.contains("dob")) dob = QDate::fromString(obj["dob"].toString(), Qt::ISODate);
     if (obj.contains("anniversary")) anniversary = QDate::fromString(obj["anniversary"].toString(), Qt::ISODate);
+    if (obj.contains("last_visit")) lastVisit = QDate::fromString(obj["last_visit"].toString(), Qt::ISODate);
     notes = obj["notes"].toString();
 }
 

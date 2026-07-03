@@ -7,6 +7,7 @@
 #include "InventoryPage.h"
 #include "SalesHistoryPage.h"
 #include "ReportsPage.h"
+#include "employees/StaffManagementPage.h"
 #include "CustomersPage.h"
 #include "../controllers/BillingController.h"
 #include "../controllers/ProductController.h"
@@ -19,6 +20,7 @@
 #include <QLineEdit>
 #include <QTimer>
 #include <QDateTime>
+#include <QResizeEvent>
 
 namespace RetailMS {
 
@@ -34,6 +36,13 @@ MainWindow::MainWindow(std::shared_ptr<BillingController> billingController,
 
 MainWindow::~MainWindow() = default;
 
+void MainWindow::resizeEvent(QResizeEvent* event) {
+    QMainWindow::resizeEvent(event);
+    if (m_sidebar && centralWidget()) {
+        m_sidebar->setGeometry(0, 0, m_sidebar->width(), centralWidget()->height());
+    }
+}
+
 void MainWindow::setupUi() {
     this->setWindowTitle("Retail Management System - Enterprise");
     this->resize(1440, 900);
@@ -45,9 +54,13 @@ void MainWindow::setupUi() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // Sidebar
+    // Sidebar Spacer (Occupies fixed width so content doesn't shift)
+    QWidget* sidebarSpacer = new QWidget(centralWidget);
+    sidebarSpacer->setFixedWidth(75);
+    mainLayout->addWidget(sidebarSpacer);
+
+    // Floating Sidebar
     m_sidebar = new SidebarWidget(centralWidget);
-    mainLayout->addWidget(m_sidebar);
 
     // Right Content Area (Vertical)
     QWidget* rightAreaWidget = new QWidget(centralWidget);
@@ -90,7 +103,8 @@ void MainWindow::setupUi() {
     m_reportsPage = new ReportsPage(m_billingController, m_contentArea);
     m_contentArea->addWidget(m_reportsPage); // 6
 
-    addPage("Staff Management Page"); // 7
+    m_staffManagementPage = new StaffManagementPage(m_billingController, m_contentArea);
+    m_contentArea->addWidget(m_staffManagementPage); // 7
     
     m_customersPage = new CustomersPage(m_billingController->customerService(), m_billingController, m_contentArea);
     m_contentArea->addWidget(m_customersPage); // 8
@@ -106,6 +120,9 @@ void MainWindow::setupUi() {
     accessDenied->setAlignment(Qt::AlignCenter);
     accessDenied->setStyleSheet("font-size: 32px; color: #EF4444; font-weight: bold;");
     m_contentArea->addWidget(accessDenied); // 11
+    
+    // Ensure sidebar is layered strictly above all right-side content
+    m_sidebar->raise();
 }
 
 void MainWindow::setupTopNavBar(QWidget* parent, QVBoxLayout* contentLayout) {

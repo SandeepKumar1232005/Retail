@@ -26,6 +26,17 @@ std::vector<Customer> CustomerService::getAllCustomers() const {
 }
 
 int CustomerService::saveCustomer(const Customer& customer) {
+    if (!customer.phone.isEmpty()) {
+        auto existing = getCustomerByPhone(customer.phone);
+        if (existing) {
+            Customer toUpdate = existing.value();
+            toUpdate.name = customer.name;
+            toUpdate.tier = customer.tier;
+            // update other fields if needed, but for now just merging name and tier is enough
+            updateCustomer(toUpdate);
+            return toUpdate.id;
+        }
+    }
     return m_repo->save(customer);
 }
 

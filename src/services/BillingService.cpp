@@ -293,6 +293,8 @@ void BillingService::awardLoyaltyPoints(const Invoice& inv) {
             int earned = m_customerService->calculatePointsEarned(inv.grandTotal);
             c.loyaltyPoints += earned;
             c.totalSpent += inv.grandTotal;
+            c.totalOrders += 1;
+            c.lastVisit = QDate::currentDate();
             m_customerService->updateTier(c);
             m_customerService->updateCustomer(c);
         }

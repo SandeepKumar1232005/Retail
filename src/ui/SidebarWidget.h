@@ -35,7 +35,7 @@ private:
     QLabel* m_logoLabel;
     
     QPropertyAnimation* m_animation;
-    bool m_isCollapsed = false;
+    bool m_isCollapsed = true;
 };
 
 } // namespace RetailMS

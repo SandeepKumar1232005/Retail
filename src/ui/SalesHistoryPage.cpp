@@ -5,6 +5,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QSizePolicy>
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QDate>
@@ -139,8 +140,9 @@ void SalesHistoryPage::setupUi() {
     m_itemsTable->setStyleSheet(
         "QTableWidget { background-color: #1E2025; border: 1px solid #2A2D35; border-radius: 8px; }"
     );
-    m_itemsTable->setFixedHeight(200);
-    rightLayout->addWidget(m_itemsTable);
+    m_itemsTable->setMinimumHeight(150);
+    m_itemsTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    rightLayout->addWidget(m_itemsTable, 1);
 
     // Totals Section
     QFrame* divider = new QFrame(rightWidget);
@@ -166,7 +168,7 @@ void SalesHistoryPage::setupUi() {
     addTotalRow("Grand Total:", m_detailGrandTotal, 3, true);
 
     rightLayout->addLayout(totalsLayout);
-    rightLayout->addStretch();
+
 
     mainLayout->addWidget(rightWidget, 3); // 30% width
 }
@@ -265,11 +267,10 @@ void SalesHistoryPage::onInvoiceSelected() {
 
     // Query full invoice details
     QString sql = "SELECT i.invoice_number, i.invoice_date, u.full_name AS cashier_name, "
-                  "c.name AS customer_name, c.phone AS customer_phone, i.payment_mode, "
+                  "i.customer_name, i.customer_phone, i.payment_mode, "
                   "i.subtotal, i.discount_amt, i.coupon_discount, (i.cgst_amt + i.sgst_amt) AS tax, i.grand_total "
                   "FROM invoices i "
                   "LEFT JOIN users u ON i.user_id = u.id "
-                  "LEFT JOIN customers c ON i.customer_id = c.id "
                   "WHERE i.id = ?;";
     
     QSqlQuery query = db.prepare(sql);

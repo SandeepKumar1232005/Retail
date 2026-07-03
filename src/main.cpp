@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 
     // Setup UI
     MainWindow window(billingController, productController);
-    window.show();
+    window.showMaximized();
 
     return app.exec();
 }

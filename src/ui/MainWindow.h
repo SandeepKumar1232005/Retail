@@ -21,6 +21,9 @@ public:
                         QWidget* parent = nullptr);
     ~MainWindow() override;
 
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+
 private:
     void setupUi();
     void setupTopNavBar(QWidget* parent, QVBoxLayout* contentLayout);
@@ -34,6 +37,7 @@ private:
     class InventoryPage* m_inventoryPage;
     class SalesHistoryPage* m_salesHistoryPage;
     class ReportsPage* m_reportsPage;
+    class StaffManagementPage* m_staffManagementPage;
     class CustomersPage* m_customersPage;
     QLabel* m_breadcrumbLabel;
     QLabel* m_dateTimeLabel;
